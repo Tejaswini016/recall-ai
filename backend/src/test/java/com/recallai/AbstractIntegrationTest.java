@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.recallai.security.RateLimitService;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -36,10 +37,15 @@ public abstract class AbstractIntegrationTest {
     @Autowired
     protected JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private RateLimitService rateLimitService;
+
     @BeforeEach
     void resetDatabase() {
         // users cascades to decks, cards, reviews, quizzes and attempts.
         jdbcTemplate.execute("TRUNCATE TABLE users, ai_cache RESTART IDENTITY CASCADE");
+        // User ids restart at 1, so per-user rate-limit windows must not leak between tests.
+        rateLimitService.clear();
     }
 
     /** Registers a fresh user and returns a bearer token for them. */
