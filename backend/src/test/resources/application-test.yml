@@ -7,8 +7,15 @@ recallai:
   cors:
     allowed-origins: http://localhost:3000
   ai:
-    api-key: test-key
+    api-key: ""
     model: test-model
+    effort: medium
+    max-tokens: 4096
+    max-input-chars: 12000
+    max-cards: 30
+    max-quiz-questions: 15
+    validation-retries: 1
+    transport-retries: 0
     rate-limit-per-hour: 20
 
 logging:
