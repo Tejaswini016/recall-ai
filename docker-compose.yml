@@ -33,6 +33,7 @@ services:
       CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-opus-5}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       AI_RATE_LIMIT: ${AI_RATE_LIMIT:-20}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
     ports:
       - "8080:8080"
     healthcheck:
