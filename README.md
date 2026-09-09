@@ -2,7 +2,7 @@
 
 An AI-powered study companion. Paste notes or upload a PDF, let Claude turn them into flashcards and quizzes, then review with the SM-2 spaced-repetition algorithm so you only study what is actually due.
 
-> **Status:** Phases 1–7 complete (foundation, authentication, decks and cards, SM-2 scheduler, review system, Claude integration, AI flashcards from notes and uploads). Quizzes, analytics and the frontend land in subsequent phases. This README grows with the project.
+> **Status:** Phases 1–8 complete (foundation, authentication, decks and cards, SM-2 scheduler, review system, Claude integration, AI flashcards, quizzes). Analytics and the frontend land in subsequent phases. This README grows with the project.
 
 ## Why this is more than an AI wrapper
 
@@ -61,7 +61,8 @@ Flyway owns the schema (`backend/src/main/resources/db/migration`). Hibernate ru
 | `cards` | Question/answer/explanation plus SM-2 state: `ease_factor`, `interval`, `repetitions`, `due_date` |
 | `review_history` | One row per review with before/after scheduling values, used for analytics, streaks and weak topics |
 | `quizzes`, `quiz_questions` | AI-generated multiple-choice quizzes |
-| `quiz_attempts` | Scores per attempt |
+| `quiz_attempts` | Scores and duration per attempt |
+| `quiz_attempt_answers` | Selected answer and correctness per question per attempt |
 | `ai_cache` | Validated Claude responses keyed by `(content_hash, operation_type, model, prompt_version)` |
 
 Check constraints enforce SM-2 invariants at the database level (ease factor ≥ 1.30, non-negative interval and repetitions, quality score 0–5, correct answer index 0–3).
@@ -177,6 +178,15 @@ Large documents are never sent to the model in one request. `TextChunker` splits
 
 The prompt restricts the model to the supplied material and tells it to produce fewer items rather than invent, the material is delimited so it cannot be read as instructions, and every generated card is shown to the user before study. The application does not claim to detect factual errors; it minimizes their likelihood and keeps the human in the loop.
 
+## Quizzes
+
+`POST /api/ai/quiz` builds a multiple-choice quiz for a deck. Without `text` the material is the deck's own cards (question, answer, explanation), so the quiz tests what the student is actually learning; with `text` it uses the supplied notes. Generation goes through the same chunked, cached and validated pipeline as flashcards, and the quiz is stored only when every chunk has produced valid questions. Each stored question has exactly four options, a correct index in 0–3 and an explanation, enforced by the validator, the entity constructor and database check constraints.
+
+Two response shapes keep the quiz honest:
+
+- `GET /api/quizzes/{id}` returns questions and options only. The correct answer and explanation are withheld while the quiz is being taken.
+- `POST /api/quizzes/{id}/attempts` grades the submission with `QuizScorer` (pure, deterministic: skipped questions are wrong, unknown or duplicate question ids are rejected) and returns score, percentage, correct and incorrect counts, completion time, optional client-measured duration, and for every question the selected answer, the correct answer and the explanation. Each attempt and its per-question results are stored, so `GET /api/quizzes/{id}/attempts/{attemptId}` can replay a past result and the quiz list reports attempt counts and best scores.
+
 ## Security and authentication
 
 - **Registration and login** issue a signed JWT (HS256) containing only the user id and email. Tokens expire after `JWT_EXPIRATION_MINUTES`.
@@ -229,6 +239,13 @@ Interactive documentation is served at `/swagger-ui.html` (OpenAPI JSON at `/v3/
 | GET | `/api/reviews/history` | Bearer | Paginated review history |
 | POST | `/api/ai/flashcards` | Bearer | Generate cards from pasted text (`deckId`, `text`, optional `count`) |
 | POST | `/api/ai/flashcards/upload` | Bearer | Generate cards from a `.txt`/`.pdf` upload (multipart `file`, `deckId`, optional `count`) |
+| POST | `/api/ai/quiz` | Bearer | Generate a quiz from a deck's cards or supplied `text` (`deckId`, optional `title`, `count`) |
+| GET | `/api/quizzes` | Bearer | List quizzes (`deckId`, paging) with question and attempt counts and best score |
+| GET | `/api/quizzes/{id}` | Bearer | Quiz to take; answers withheld |
+| DELETE | `/api/quizzes/{id}` | Bearer | Delete quiz and attempts |
+| POST | `/api/quizzes/{id}/attempts` | Bearer | Submit answers; returns score and per-question results with explanations |
+| GET | `/api/quizzes/{id}/attempts` | Bearer | Past attempts, newest first |
+| GET | `/api/quizzes/{id}/attempts/{attemptId}` | Bearer | Full result of one attempt |
 | GET | `/api/search?q=` | Bearer | Top decks and cards matching a query |
 | GET | `/api/tags` | Bearer | All tags the user has used |
 
@@ -316,7 +333,7 @@ cd frontend && npm run lint && npm run build
 5. ✅ Review queue, grading, history, streaks, mastered cards
 6. ✅ Claude integration: versioned prompts, structured output, strict validation, corrective retries, content-hash cache, fake client for tests
 7. ✅ AI flashcards from pasted text and PDF/TXT uploads with extraction, chunking and persistence
-8. Quizzes
+8. ✅ Quizzes: generation from deck or material, answer-free quiz view, scored attempts with explanations
 9. Weak topics and analytics
 10. Frontend
 11. Production hardening
