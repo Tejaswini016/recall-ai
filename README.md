@@ -2,7 +2,7 @@
 
 An AI-powered study companion. Paste notes or upload a PDF, let Claude turn them into flashcards and quizzes, then review with the SM-2 spaced-repetition algorithm so you only study what is actually due.
 
-> **Status:** Phases 1–8 complete (foundation, authentication, decks and cards, SM-2 scheduler, review system, Claude integration, AI flashcards, quizzes). Analytics and the frontend land in subsequent phases. This README grows with the project.
+> **Status:** Phases 1–9 complete (foundation, authentication, decks and cards, SM-2 scheduler, review system, Claude integration, AI flashcards, quizzes, weak topics and analytics). The frontend, production hardening and deployment follow. This README grows with the project.
 
 ## Why this is more than an AI wrapper
 
@@ -187,6 +187,16 @@ Two response shapes keep the quiz honest:
 - `GET /api/quizzes/{id}` returns questions and options only. The correct answer and explanation are withheld while the quiz is being taken.
 - `POST /api/quizzes/{id}/attempts` grades the submission with `QuizScorer` (pure, deterministic: skipped questions are wrong, unknown or duplicate question ids are rejected) and returns score, percentage, correct and incorrect counts, completion time, optional client-measured duration, and for every question the selected answer, the correct answer and the explanation. Each attempt and its per-question results are stored, so `GET /api/quizzes/{id}/attempts/{attemptId}` can replay a past result and the quiz list reports attempt counts and best scores.
 
+## Weak topics and analytics
+
+Everything under `/api/analytics` is computed by SQL aggregates over `review_history`, `cards` and `quiz_attempts`; Java only fills calendar gaps and applies the weak-topic rule. No model is involved.
+
+**Weak-topic detection** (`GET /api/analytics/weak-topics`, `GET /api/analytics/topics`): one query groups reviews by card topic (case-insensitively) and computes review count, all-time average quality, success rate, and the average quality of the topic's most recent `WEAK_TOPIC_RECENT_WINDOW` reviews (a window function). `WeakTopicDetector` then flags a topic as weak when it has at least `WEAK_TOPIC_MIN_REVIEWS` reviews and that recent average is below `WEAK_TOPIC_QUALITY_THRESHOLD` (default 3.0, the SM-2 passing grade). Using the recent window means a topic the student has since improved on is no longer flagged, while a topic with too little history is never flagged on a single bad day. Both endpoints accept `deckId`.
+
+**Dashboard summary** (`GET /api/analytics/summary`): cards due today, reviewed today, total cards, cards mastered (interval at or above `MASTERED_INTERVAL_DAYS`) with a percentage, total decks, total reviews, average recall (mean quality 0–5), 30-day retention rate (share of successful reviews), current and longest streak, last active day, quizzes taken and average quiz score.
+
+**Charts**: `GET /api/analytics/activity?days=30` returns one point per calendar day (gaps filled with zeros) with reviews, successful reviews, average quality and retention percent; `GET /api/analytics/mastery?days=90` returns the cumulative number of cards that had reached the mastered interval by each day, based on the first review that took each card there.
+
 ## Security and authentication
 
 - **Registration and login** issue a signed JWT (HS256) containing only the user id and email. Tokens expire after `JWT_EXPIRATION_MINUTES`.
@@ -246,6 +256,11 @@ Interactive documentation is served at `/swagger-ui.html` (OpenAPI JSON at `/v3/
 | POST | `/api/quizzes/{id}/attempts` | Bearer | Submit answers; returns score and per-question results with explanations |
 | GET | `/api/quizzes/{id}/attempts` | Bearer | Past attempts, newest first |
 | GET | `/api/quizzes/{id}/attempts/{attemptId}` | Bearer | Full result of one attempt |
+| GET | `/api/analytics/summary` | Bearer | Dashboard headline numbers |
+| GET | `/api/analytics/activity` | Bearer | Daily reviews, quality and retention (`days`) |
+| GET | `/api/analytics/mastery` | Bearer | Cumulative cards mastered per day (`days`) |
+| GET | `/api/analytics/topics` | Bearer | Per-topic performance, weakest first (`deckId`) |
+| GET | `/api/analytics/weak-topics` | Bearer | Only topics flagged weak (`deckId`) |
 | GET | `/api/search?q=` | Bearer | Top decks and cards matching a query |
 | GET | `/api/tags` | Bearer | All tags the user has used |
 
@@ -310,6 +325,7 @@ Backend (`backend/.env.example`):
 | `CORS_ALLOWED_ORIGINS` | Comma-separated frontend origins |
 | `AI_RATE_LIMIT` | AI generation requests per user per hour |
 | `MASTERED_INTERVAL_DAYS` | SM-2 interval at which a card counts as mastered (default 21) |
+| `WEAK_TOPIC_MIN_REVIEWS`, `WEAK_TOPIC_QUALITY_THRESHOLD`, `WEAK_TOPIC_RECENT_WINDOW` | Weak-topic rule: minimum history, recent-average threshold, window size |
 | `MAX_UPLOAD_SIZE` | Upload limit for study material |
 | `MATERIAL_MAX_CHARS`, `MATERIAL_MAX_CHUNKS` | Largest extracted text per generation and how many model-sized chunks it may span |
 
@@ -334,7 +350,7 @@ cd frontend && npm run lint && npm run build
 6. ✅ Claude integration: versioned prompts, structured output, strict validation, corrective retries, content-hash cache, fake client for tests
 7. ✅ AI flashcards from pasted text and PDF/TXT uploads with extraction, chunking and persistence
 8. ✅ Quizzes: generation from deck or material, answer-free quiz view, scored attempts with explanations
-9. Weak topics and analytics
+9. ✅ Weak topics and analytics: deterministic weak-topic rule, dashboard summary, activity, retention and mastery series
 10. Frontend
 11. Production hardening
 12. AWS deployment
