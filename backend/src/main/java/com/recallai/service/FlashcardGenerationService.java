@@ -73,13 +73,15 @@ public class FlashcardGenerationService {
                     + "). Split it into smaller documents.");
         }
 
+        List<Integer> shares = GenerationPlanner.shares(chunks, count, aiProperties.maxCards());
+
         List<GeneratedFlashcard> merged = new ArrayList<>();
         Set<String> seenQuestions = new HashSet<>();
         int cachedChunks = 0;
         int retries = 0;
-        for (String chunk : chunks) {
-            int share = shareFor(chunk.length(), material.length(), count);
-            AiGenerationResult<GeneratedFlashcard> result = aiGenerationService.generateFlashcards(chunk, share);
+        for (int i = 0; i < chunks.size(); i++) {
+            AiGenerationResult<GeneratedFlashcard> result =
+                    aiGenerationService.generateFlashcards(chunks.get(i), shares.get(i));
             if (result.cached()) {
                 cachedChunks++;
             }
@@ -97,12 +99,6 @@ public class FlashcardGenerationService {
         log.info("User {} generated {} cards into deck {} from {} chunks ({} cached, {} retries)",
                 userId, saved.size(), deckId, chunks.size(), cachedChunks, retries);
         return new GenerateCardsResponse(deckId, saved.size(), chunks.size(), cachedChunks, retries, saved);
-    }
-
-    /** Proportional share of the requested count for a chunk, at least 1 and never above the per-call cap. */
-    int shareFor(int chunkLength, int totalLength, int count) {
-        int proportional = (int) Math.ceil(count * (double) chunkLength / totalLength);
-        return Math.max(1, Math.min(proportional, aiProperties.maxCards()));
     }
 
     private static CardRequest toCardRequest(GeneratedFlashcard card) {

@@ -17,6 +17,9 @@ public interface CardRepository extends JpaRepository<Card, Long> {
     /** Ownership travels through the deck: a card in another user's deck does not exist for this user. */
     Optional<Card> findByIdAndDeckUserId(Long id, Long userId);
 
+    /** All cards of a deck whose ownership the caller has already verified. */
+    List<Card> findByDeckIdOrderByIdAsc(Long deckId);
+
     /**
      * Same ownership check, but takes a row lock so two concurrent gradings of the same
      * card are serialized instead of racing on the SM-2 state.

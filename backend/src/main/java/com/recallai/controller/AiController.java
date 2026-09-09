@@ -2,8 +2,11 @@ package com.recallai.controller;
 
 import com.recallai.dto.GenerateCardsResponse;
 import com.recallai.dto.GenerateFlashcardsRequest;
+import com.recallai.dto.GenerateQuizRequest;
+import com.recallai.dto.QuizResponse;
 import com.recallai.security.AuthenticatedUser;
 import com.recallai.service.FlashcardGenerationService;
+import com.recallai.service.QuizGenerationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,14 +27,17 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/ai")
-@Tag(name = "AI generation", description = "Claude-powered flashcard generation from notes or uploaded files")
+@Tag(name = "AI generation", description = "Claude-powered flashcard and quiz generation")
 @SecurityRequirement(name = "bearerAuth")
 public class AiController {
 
     private final FlashcardGenerationService flashcardGenerationService;
+    private final QuizGenerationService quizGenerationService;
 
-    public AiController(FlashcardGenerationService flashcardGenerationService) {
+    public AiController(FlashcardGenerationService flashcardGenerationService,
+                        QuizGenerationService quizGenerationService) {
         this.flashcardGenerationService = flashcardGenerationService;
+        this.quizGenerationService = quizGenerationService;
     }
 
     @PostMapping("/flashcards")
@@ -52,5 +58,13 @@ public class AiController {
                                           @Min(1) @Max(GenerateFlashcardsRequest.MAX_COUNT) Integer count,
                                           @RequestPart("file") MultipartFile file) {
         return flashcardGenerationService.generateFromFile(user.id(), deckId, file, count);
+    }
+
+    @PostMapping("/quiz")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Generate a multiple-choice quiz from a deck's cards or from supplied study material")
+    public QuizResponse quiz(@AuthenticationPrincipal AuthenticatedUser user,
+                             @Valid @RequestBody GenerateQuizRequest request) {
+        return quizGenerationService.generate(user.id(), request);
     }
 }
