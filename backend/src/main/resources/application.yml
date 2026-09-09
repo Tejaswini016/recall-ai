@@ -60,6 +60,9 @@ recallai:
       expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  review:
+    # A card whose SM-2 interval reaches this many days counts as mastered.
+    mastered-interval-days: ${MASTERED_INTERVAL_DAYS:21}
   ai:
     api-key: ${CLAUDE_API_KEY:}
     model: ${CLAUDE_MODEL:claude-sonnet-5}

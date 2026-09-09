@@ -1,6 +1,7 @@
 package com.recallai.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -12,6 +13,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -46,7 +50,13 @@ public class GlobalExceptionHandler {
         return respond(ApiError.validation("Request validation failed", request.getRequestURI(), fieldErrors));
     }
 
-    @ExceptionHandler({HttpMessageNotReadableException.class, HttpRequestMethodNotSupportedException.class})
+    @ExceptionHandler({HandlerMethodValidationException.class, ConstraintViolationException.class})
+    public ResponseEntity<ApiError> handleParameterValidation(Exception ex, HttpServletRequest request) {
+        return respond(ApiError.validation("Invalid request parameters", request.getRequestURI(), null));
+    }
+
+    @ExceptionHandler({HttpMessageNotReadableException.class, HttpRequestMethodNotSupportedException.class,
+            MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
     public ResponseEntity<ApiError> handleBadRequest(Exception ex, HttpServletRequest request) {
         return respond(ApiError.of(ErrorCode.BAD_REQUEST, "Malformed request", request.getRequestURI()));
     }

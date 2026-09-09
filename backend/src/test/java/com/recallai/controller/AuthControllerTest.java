@@ -11,12 +11,10 @@ import com.recallai.AbstractIntegrationTest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recallai.repository.UserRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 class AuthControllerTest extends AbstractIntegrationTest {
@@ -26,16 +24,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
             """;
 
     @Autowired
-    private MockMvc mockMvc;
-    @Autowired
-    private ObjectMapper objectMapper;
-    @Autowired
     private UserRepository userRepository;
-
-    @BeforeEach
-    void cleanUsers() {
-        userRepository.deleteAll();
-    }
 
     @Test
     void registerReturnsTokenAndUserWithoutPasswordHash() throws Exception {
