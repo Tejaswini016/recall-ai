@@ -1,0 +1,12 @@
+package com.recallai.config;
+
+import jakarta.validation.constraints.NotEmpty;
+import java.util.List;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
+
+/** Bound from {@code recallai.cors.allowed-origins}, a comma-separated list. */
+@Validated
+@ConfigurationProperties(prefix = "recallai.cors")
+public record CorsProperties(@NotEmpty List<String> allowedOrigins) {
+}

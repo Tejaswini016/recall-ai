@@ -5,8 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -14,9 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * Flyway applied the schema. This is the foundation check: if this passes, the
  * datasource, migrations, JPA validation and security configuration all load.
  */
-@SpringBootTest
-@Import(TestcontainersConfiguration.class)
-class SchemaMigrationTest {
+class SchemaMigrationTest extends AbstractIntegrationTest {
 
     private static final List<String> EXPECTED_TABLES = List.of(
             "users", "decks", "cards", "review_history",

@@ -1,0 +1,16 @@
+# Test-only overrides. The datasource is supplied by Testcontainers via @ServiceConnection.
+recallai:
+  security:
+    jwt:
+      secret: test-only-secret-that-is-long-enough-for-hmac-sha256-signing
+      expiration-minutes: 60
+  cors:
+    allowed-origins: http://localhost:3000
+  ai:
+    api-key: test-key
+    model: test-model
+    rate-limit-per-hour: 20
+
+logging:
+  level:
+    com.recallai: DEBUG
