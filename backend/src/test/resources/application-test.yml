@@ -6,6 +6,10 @@ recallai:
       expiration-minutes: 60
   cors:
     allowed-origins: http://localhost:3000
+  analytics:
+    weak-topic-min-reviews: 3
+    weak-topic-quality-threshold: 3.0
+    weak-topic-recent-window: 10
   material:
     max-chars: 60000
     max-chunks: 6
