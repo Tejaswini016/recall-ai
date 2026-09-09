@@ -1,5 +1,6 @@
 package com.recallai.entity;
 
+import com.recallai.scheduler.Sm2State;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -28,8 +29,6 @@ import org.hibernate.type.SqlTypes;
 @Table(name = "cards")
 public class Card {
 
-    public static final BigDecimal INITIAL_EASE_FACTOR = new BigDecimal("2.50");
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -55,7 +54,7 @@ public class Card {
     private List<String> tags = new ArrayList<>();
 
     @Column(name = "ease_factor", nullable = false, precision = 4, scale = 2)
-    private BigDecimal easeFactor = INITIAL_EASE_FACTOR;
+    private BigDecimal easeFactor = Sm2State.INITIAL_EASE_FACTOR;
 
     /** Days until the next review after the last successful one. */
     @Column(name = "interval", nullable = false)
