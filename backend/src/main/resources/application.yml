@@ -63,6 +63,11 @@ recallai:
   review:
     # A card whose SM-2 interval reaches this many days counts as mastered.
     mastered-interval-days: ${MASTERED_INTERVAL_DAYS:21}
+  material:
+    # Largest study text (after extraction) accepted for one generation, and how many
+    # model-sized chunks it may be split into. Together these bound the cost of a request.
+    max-chars: ${MATERIAL_MAX_CHARS:60000}
+    max-chunks: ${MATERIAL_MAX_CHUNKS:6}
   ai:
     api-key: ${CLAUDE_API_KEY:}
     # The model id is part of every cache key, so changing it never serves stale output.

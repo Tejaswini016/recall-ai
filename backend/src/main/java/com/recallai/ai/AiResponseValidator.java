@@ -34,14 +34,13 @@ public class AiResponseValidator {
         if (cards.isEmpty()) {
             throw invalid("\"cards\" is empty; at least one card is required");
         }
-        if (cards.size() > maxCards) {
-            throw invalid("\"cards\" has " + cards.size() + " entries but at most " + maxCards + " were requested");
-        }
+        // Extra well-formed cards are not an error; a corrective retry would just cost money.
+        int cardLimit = Math.min(cards.size(), maxCards);
 
         List<String> problems = new ArrayList<>();
         List<GeneratedFlashcard> result = new ArrayList<>();
         Set<String> seenQuestions = new HashSet<>();
-        for (int i = 0; i < cards.size(); i++) {
+        for (int i = 0; i < cardLimit; i++) {
             JsonNode node = cards.get(i);
             String where = "cards[" + i + "]";
             if (!node.isObject()) {
@@ -76,15 +75,12 @@ public class AiResponseValidator {
         if (questions.isEmpty()) {
             throw invalid("\"questions\" is empty; at least one question is required");
         }
-        if (questions.size() > maxQuestions) {
-            throw invalid("\"questions\" has " + questions.size() + " entries but at most " + maxQuestions
-                    + " were requested");
-        }
+        int questionLimit = Math.min(questions.size(), maxQuestions);
 
         List<String> problems = new ArrayList<>();
         List<GeneratedQuizQuestion> result = new ArrayList<>();
         Set<String> seenQuestions = new HashSet<>();
-        for (int i = 0; i < questions.size(); i++) {
+        for (int i = 0; i < questionLimit; i++) {
             JsonNode node = questions.get(i);
             String where = "questions[" + i + "]";
             if (!node.isObject()) {
