@@ -6,6 +6,9 @@ recallai:
       expiration-minutes: 60
   cors:
     allowed-origins: http://localhost:3000
+  material:
+    max-chars: 60000
+    max-chunks: 6
   ai:
     api-key: ""
     model: test-model

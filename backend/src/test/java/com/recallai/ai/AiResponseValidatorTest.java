@@ -104,9 +104,11 @@ class AiResponseValidatorTest {
         }
 
         @Test
-        void tooManyCardsIsRejected() {
-            assertThatThrownBy(() -> validator.validateFlashcards(VALID_CARDS, 1))
-                    .hasMessageContaining("at most 1");
+        void extraCardsBeyondTheRequestedCountAreDroppedNotRejected() {
+            List<GeneratedFlashcard> cards = validator.validateFlashcards(VALID_CARDS, 1);
+
+            assertThat(cards).hasSize(1);
+            assertThat(cards.get(0).question()).isEqualTo("What is ATP?");
         }
 
         @Test
