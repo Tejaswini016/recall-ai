@@ -2,7 +2,7 @@
 
 An AI-powered study companion. Paste notes or upload a PDF, let Claude turn them into flashcards and quizzes, then review with the SM-2 spaced-repetition algorithm so you only study what is actually due.
 
-> **Status:** Phases 1–9 complete (foundation, authentication, decks and cards, SM-2 scheduler, review system, Claude integration, AI flashcards, quizzes, weak topics and analytics). The frontend, production hardening and deployment follow. This README grows with the project.
+> **Status:** Phases 1–10 complete (backend feature set and the Next.js frontend). Production hardening and deployment follow. This README grows with the project.
 
 ## Why this is more than an AI wrapper
 
@@ -197,6 +197,34 @@ Everything under `/api/analytics` is computed by SQL aggregates over `review_his
 
 **Charts**: `GET /api/analytics/activity?days=30` returns one point per calendar day (gaps filled with zeros) with reviews, successful reviews, average quality and retention percent; `GET /api/analytics/mastery?days=90` returns the cumulative number of cards that had reached the mastered interval by each day, based on the first review that took each card there.
 
+## Frontend
+
+A Next.js 16 App Router application in `frontend/`, written as a client-rendered SPA over the REST API (the backend is the only place that talks to Claude or the database).
+
+| Route | What it does |
+|---|---|
+| `/login`, `/register` | Auth forms with field-level errors from the API; on success the JWT is stored in a same-site cookie |
+| `/dashboard` | Time-of-day greeting, Due / Reviewed / Streak / Mastered tiles, "Start review" CTA, today's queue, weak topics, 14-day activity chart, recent activity |
+| `/decks` | Searchable, tag-filtered, paginated deck grid with progress bars; create deck modal |
+| `/decks/[id]` | Deck header with counts and progress; Study, Generate cards (paste or drag-and-drop TXT/PDF), Generate quiz, Edit, Delete; tabs for cards (search, add, edit, delete) and quizzes |
+| `/study/[deckId]` (`all` for every deck) | One card at a time: question, reveal, answer and explanation, six SM-2 rating buttons, progress bar, cards remaining, session summary |
+| `/quiz/[quizId]` | One question at a time with four options, then a scored results screen with correct/incorrect markers and explanations for misses, retry |
+| `/analytics` | Recall, retention, mastered and streak tiles; review activity, retention, mastery-over-time and topic-performance charts (Recharts); full topic table with weak flags |
+| `/settings` | Account details, keyboard shortcut reference, how scheduling works, sign out |
+
+**Keyboard shortcuts** in the study session: `Space` or `Enter` reveals the answer, `0`–`5` rate the card (`1` Again, `2` Hard, `3` Good, `4` Easy, `5` Excellent, `0` Blank). In quizzes `1`–`4` pick an option and `Enter` continues.
+
+**How it is built**
+
+- `proxy.ts` (Next 16's middleware) redirects visitors without a token away from protected routes and logged-in users away from the auth pages, server-side, so there is no flash of the wrong page. The API remains the authority on every token.
+- `lib/api.ts` is a single fetch wrapper that attaches the bearer token, parses the backend's error shape into `ApiRequestError` (status, code, field errors), and signs the user out on 401. `lib/endpoints.ts` has one typed function per endpoint, so pages never build URLs.
+- `hooks/useApiQuery` is a small fetch-on-mount hook with abort-on-unmount, derived loading state and refetch, which keeps the app free of a data-fetching library.
+- Reusable UI in `components/ui` (buttons, fields, modal with focus management and Escape, tag input, stat tiles, progress bar, empty/error/loading states, toasts). Every list has loading skeletons, an error state with retry and an empty state.
+- Tailwind 4 theme tokens with a dark-mode palette; chart colours follow a validated categorical palette with a reserved status colour for weak topics.
+- Responsive from phone widths up: the sidebar collapses to a menu, header actions wrap under the title, rating buttons reflow to two rows.
+
+**Tests**: Vitest with Testing Library covers the API client (auth header, error mapping, 401 handling, network failures, 204s), the format helpers and the rating bar. Run `npm test`.
+
 ## Security and authentication
 
 - **Registration and login** issue a signed JWT (HS256) containing only the user id and email. Tokens expire after `JWT_EXPIRATION_MINUTES`.
@@ -337,7 +365,7 @@ Secrets are never committed; `.gitignore` excludes every `.env*` file except the
 
 ```bash
 cd backend && ./mvnw verify     # unit + integration tests (integration tests use Testcontainers, requires Docker)
-cd frontend && npm run lint && npm run build
+cd frontend && npm run lint && npm test && npm run build
 ```
 
 ## Roadmap
@@ -351,6 +379,6 @@ cd frontend && npm run lint && npm run build
 7. ✅ AI flashcards from pasted text and PDF/TXT uploads with extraction, chunking and persistence
 8. ✅ Quizzes: generation from deck or material, answer-free quiz view, scored attempts with explanations
 9. ✅ Weak topics and analytics: deterministic weak-topic rule, dashboard summary, activity, retention and mastery series
-10. Frontend
+10. ✅ Frontend: auth, dashboard, decks, generation, study session, quizzes, analytics, settings
 11. Production hardening
 12. AWS deployment
