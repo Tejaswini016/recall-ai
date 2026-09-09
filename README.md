@@ -2,7 +2,7 @@
 
 An AI-powered study companion. Paste notes or upload a PDF, let Claude turn them into flashcards and quizzes, then review with the SM-2 spaced-repetition algorithm so you only study what is actually due.
 
-> **Status:** Phase 1 (foundation) complete. Authentication, decks, SM-2 and AI features land in subsequent phases. This README grows with the project.
+> **Status:** Phases 1–2 complete (foundation, authentication). Decks, SM-2 and AI features land in subsequent phases. This README grows with the project.
 
 ## Why this is more than an AI wrapper
 
@@ -66,6 +66,42 @@ Flyway owns the schema (`backend/src/main/resources/db/migration`). Hibernate ru
 
 Check constraints enforce SM-2 invariants at the database level (ease factor ≥ 1.30, non-negative interval and repetitions, quality score 0–5, correct answer index 0–3).
 
+## Security and authentication
+
+- **Registration and login** issue a signed JWT (HS256) containing only the user id and email. Tokens expire after `JWT_EXPIRATION_MINUTES`.
+- **Passwords** are hashed with BCrypt and never logged or returned. Login for an unknown email still runs a BCrypt comparison against a dummy hash so response timing does not reveal whether an account exists.
+- **Every request** passes through `JwtAuthenticationFilter`, which verifies the signature and expiry, then reloads the user from PostgreSQL. A token for a deleted account is rejected.
+- **Stateless**: no sessions, no cookies, CSRF disabled because the API only accepts bearer tokens from a separate origin. CORS is restricted to `CORS_ALLOWED_ORIGINS`.
+- **User isolation**: services always scope queries by the authenticated user id taken from the security context, never from the request body.
+- **Fail-fast configuration**: the application refuses to start if `JWT_SECRET` is missing or shorter than 32 characters.
+
+### Error format
+
+Every error, including those raised inside the security filter chain, uses one shape:
+
+```json
+{
+  "timestamp": "2026-09-09T16:20:00Z",
+  "status": 400,
+  "error": "VALIDATION_ERROR",
+  "message": "Request validation failed",
+  "path": "/api/auth/register",
+  "fieldErrors": { "email": "must be a well-formed email address" }
+}
+```
+
+`fieldErrors` appears only for validation failures. Unexpected exceptions are logged server-side and reported as `INTERNAL_ERROR` with a generic message.
+
+## API
+
+Interactive documentation is served at `/swagger-ui.html` (OpenAPI JSON at `/v3/api-docs`). Click **Authorize** and paste a token to call protected endpoints.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/auth/register` | – | Create account, returns token + user |
+| POST | `/api/auth/login` | – | Returns token + user |
+| GET | `/api/auth/me` | Bearer | Current user |
+
 ## Local setup (without Docker)
 
 Prerequisites: JDK 21+, Node 20+, a PostgreSQL 16 instance.
@@ -124,7 +160,7 @@ cd frontend && npm run lint && npm run build
 ## Roadmap
 
 1. ✅ Foundation: repo, Spring Boot, Next.js, PostgreSQL, Flyway, Docker
-2. Authentication (JWT)
+2. ✅ Authentication (JWT)
 3. Decks and cards
 4. SM-2 scheduler with comprehensive tests
 5. Review queue, history, streaks
