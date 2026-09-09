@@ -2,7 +2,7 @@
 
 An AI-powered study companion. Paste notes or upload a PDF, let Claude turn them into flashcards and quizzes, then review with the SM-2 spaced-repetition algorithm so you only study what is actually due.
 
-> **Status:** Phases 1–2 complete (foundation, authentication). Decks, SM-2 and AI features land in subsequent phases. This README grows with the project.
+> **Status:** Phases 1–3 complete (foundation, authentication, decks and cards). SM-2, reviews and AI features land in subsequent phases. This README grows with the project.
 
 ## Why this is more than an AI wrapper
 
@@ -101,6 +101,34 @@ Interactive documentation is served at `/swagger-ui.html` (OpenAPI JSON at `/v3/
 | POST | `/api/auth/register` | – | Create account, returns token + user |
 | POST | `/api/auth/login` | – | Returns token + user |
 | GET | `/api/auth/me` | Bearer | Current user |
+| POST | `/api/decks` | Bearer | Create deck |
+| GET | `/api/decks` | Bearer | List/search decks (`q`, `subject`, `tag`, `page`, `size`) with card, due and mastered counts |
+| GET | `/api/decks/{id}` | Bearer | Deck with statistics and progress |
+| PUT | `/api/decks/{id}` | Bearer | Update deck |
+| DELETE | `/api/decks/{id}` | Bearer | Delete deck and its cards |
+| POST | `/api/decks/{id}/cards` | Bearer | Add card |
+| GET | `/api/decks/{id}/cards` | Bearer | List/search cards in a deck (`q`, `topic`, `tag`, paging) |
+| GET | `/api/cards` | Bearer | Search cards across all decks |
+| GET | `/api/cards/{id}` | Bearer | Get card |
+| PUT | `/api/cards/{id}` | Bearer | Update card content (scheduling fields are read-only here) |
+| DELETE | `/api/cards/{id}` | Bearer | Delete card |
+| GET | `/api/search?q=` | Bearer | Top decks and cards matching a query |
+| GET | `/api/tags` | Bearer | All tags the user has used |
+
+List endpoints return `{ content, page, size, totalElements, totalPages }`; `size` is capped at 100.
+
+### Data isolation
+
+Every deck and card lookup goes through a repository method that includes the authenticated user's id (`findByIdAndUserId`, `findByIdAndDeckUserId`). A resource that belongs to someone else is reported as `404 NOT_FOUND`, never `403`, so the API does not confirm that the id exists. Integration tests exercise this for reads, updates, deletes, card creation and search.
+
+### Search
+
+Search runs entirely in PostgreSQL:
+
+- Generated `tsvector` columns on `decks` (name, description, subject) and `cards` (question, answer, topic) with GIN indexes provide stemmed full-text search via `websearch_to_tsquery`.
+- Short fields (deck name and subject, card topic) also match by substring, and tags match by prefix, so partially typed words still find results.
+- Tags are stored as `text[]` in one canonical form (trimmed, lower-cased, de-duplicated) with GIN indexes; exact tag filters use `= ANY(tags)`.
+- Deck statistics (card count, cards due today, mastered cards) are one aggregate query per page of decks, not N+1 lookups.
 
 ## Local setup (without Docker)
 
@@ -144,6 +172,7 @@ Backend (`backend/.env.example`):
 | `CLAUDE_API_KEY`, `CLAUDE_MODEL` | Anthropic credentials and model id |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated frontend origins |
 | `AI_RATE_LIMIT` | AI generation requests per user per hour |
+| `MASTERED_INTERVAL_DAYS` | SM-2 interval at which a card counts as mastered (default 21) |
 | `MAX_UPLOAD_SIZE` | Upload limit for study material |
 
 Frontend (`frontend/.env.example`): `NEXT_PUBLIC_API_URL` – base URL of the API as seen from the browser.
@@ -161,7 +190,7 @@ cd frontend && npm run lint && npm run build
 
 1. ✅ Foundation: repo, Spring Boot, Next.js, PostgreSQL, Flyway, Docker
 2. ✅ Authentication (JWT)
-3. Decks and cards
+3. ✅ Decks and cards: CRUD, tags, PostgreSQL full-text search, per-user isolation
 4. SM-2 scheduler with comprehensive tests
 5. Review queue, history, streaks
 6. Claude integration: structured output, validation, retries, caching
