@@ -20,6 +20,10 @@ public interface CardRepository extends JpaRepository<Card, Long> {
     /** All cards of a deck whose ownership the caller has already verified. */
     List<Card> findByDeckIdOrderByIdAsc(Long deckId);
 
+    long countByDeckUserId(Long userId);
+
+    long countByDeckUserIdAndIntervalDaysGreaterThanEqual(Long userId, int intervalDays);
+
     /**
      * Same ownership check, but takes a row lock so two concurrent gradings of the same
      * card are serialized instead of racing on the SM-2 state.

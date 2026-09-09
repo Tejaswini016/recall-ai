@@ -63,6 +63,12 @@ recallai:
   review:
     # A card whose SM-2 interval reaches this many days counts as mastered.
     mastered-interval-days: ${MASTERED_INTERVAL_DAYS:21}
+  analytics:
+    # A topic is weak once it has this many reviews and the average quality of its most
+    # recent reviews falls below the threshold (SM-2 quality 0-5; 3 is a passing recall).
+    weak-topic-min-reviews: ${WEAK_TOPIC_MIN_REVIEWS:3}
+    weak-topic-quality-threshold: ${WEAK_TOPIC_QUALITY_THRESHOLD:3.0}
+    weak-topic-recent-window: ${WEAK_TOPIC_RECENT_WINDOW:10}
   material:
     # Largest study text (after extraction) accepted for one generation, and how many
     # model-sized chunks it may be split into. Together these bound the cost of a request.

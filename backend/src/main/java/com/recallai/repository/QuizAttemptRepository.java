@@ -22,4 +22,7 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> 
                                      @Param("userId") Long userId);
 
     long countByUserId(Long userId);
+
+    @Query("SELECT avg(a.score * 100.0 / a.totalQuestions) FROM QuizAttempt a WHERE a.user.id = :userId")
+    Double averagePercent(@Param("userId") Long userId);
 }
