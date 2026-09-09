@@ -2,7 +2,7 @@
 
 An AI-powered study companion. Paste notes or upload a PDF, let Claude turn them into flashcards and quizzes, then review with the SM-2 spaced-repetition algorithm so you only study what is actually due.
 
-> **Status:** Phases 1–3 complete (foundation, authentication, decks and cards). SM-2, reviews and AI features land in subsequent phases. This README grows with the project.
+> **Status:** Phases 1–4 complete (foundation, authentication, decks and cards, SM-2 scheduler). Reviews and AI features land in subsequent phases. This README grows with the project.
 
 ## Why this is more than an AI wrapper
 
@@ -65,6 +65,30 @@ Flyway owns the schema (`backend/src/main/resources/db/migration`). Hibernate ru
 | `ai_cache` | Validated Claude responses keyed by `(content_hash, operation_type, model, prompt_version)` |
 
 Check constraints enforce SM-2 invariants at the database level (ease factor ≥ 1.30, non-negative interval and repetitions, quality score 0–5, correct answer index 0–3).
+
+## SM-2 spaced repetition
+
+Scheduling is deterministic Java in `backend/src/main/java/com/recallai/scheduler` (`Sm2Service`, `Sm2State`, `ReviewResult`). It has no dependency on Spring Web, JPA or Claude, and is exercised by 30+ unit tests before any review endpoint exists.
+
+**What the algorithm tracks per card**
+
+| Field | Meaning | Start |
+|---|---|---|
+| `easeFactor` | How easy the card is; multiplies the interval on each success | 2.50 |
+| `interval` | Days between the last successful review and the next one | 0 |
+| `repetitions` | Consecutive successful reviews since the last failure | 0 |
+| `dueDate` | Day the card re-enters the review queue | creation day |
+
+**What happens on a review** (quality `q` from 0 = blank to 5 = perfect):
+
+1. `q < 3` is a lapse. Repetitions reset to 0 and the card is scheduled for relearning tomorrow (interval 1). The ease factor is left unchanged, as in Wozniak's original description.
+2. `q ≥ 3` is a success. The next interval is 1 day for the first repetition, 6 days for the second, and `round(previousInterval × easeFactor)` afterwards, always at least one day longer than before. The multiplication uses the ease factor *before* this review's adjustment.
+3. On success the ease factor moves by `0.1 − (5 − q) × (0.08 + (5 − q) × 0.02)` and is floored at 1.30. So quality 5 adds 0.10, quality 4 leaves it unchanged, quality 3 subtracts 0.14. There is no upper bound.
+4. `dueDate = today + newInterval`.
+
+With steady quality-4 recalls a card follows the classic ladder 1 → 6 → 15 → 38 → 95 → 238 days. Repeated quality-3 recalls push the ease down to the 1.30 floor, so hard cards come back more often; quality-5 recalls raise it, so easy cards come back less often.
+
+**Why not let the AI schedule?** Spacing is a well-studied, deterministic problem with a known-good algorithm. A model would be slower, non-reproducible, cost money per review and be impossible to unit test. Claude is used only where language understanding is the job: turning study material into cards and quizzes.
 
 ## Security and authentication
 
@@ -191,7 +215,7 @@ cd frontend && npm run lint && npm run build
 1. ✅ Foundation: repo, Spring Boot, Next.js, PostgreSQL, Flyway, Docker
 2. ✅ Authentication (JWT)
 3. ✅ Decks and cards: CRUD, tags, PostgreSQL full-text search, per-user isolation
-4. SM-2 scheduler with comprehensive tests
+4. ✅ SM-2 scheduler with comprehensive tests
 5. Review queue, history, streaks
 6. Claude integration: structured output, validation, retries, caching
 7. AI flashcards from pasted text and PDF/TXT uploads
