@@ -2,7 +2,7 @@
 
 An AI-powered study companion. Paste notes or upload a PDF, let Claude turn them into flashcards and quizzes, then review with the SM-2 spaced-repetition algorithm so you only study what is actually due.
 
-> **Status:** Phases 1–10 complete (backend feature set and the Next.js frontend). Production hardening and deployment follow. This README grows with the project.
+> **Status:** Phases 1–11 complete (full feature set, frontend, production hardening). AWS deployment documentation follows. This README grows with the project.
 
 ## Why this is more than an AI wrapper
 
@@ -230,9 +230,43 @@ A Next.js 16 App Router application in `frontend/`, written as a client-rendered
 - **Registration and login** issue a signed JWT (HS256) containing only the user id and email. Tokens expire after `JWT_EXPIRATION_MINUTES`.
 - **Passwords** are hashed with BCrypt and never logged or returned. Login for an unknown email still runs a BCrypt comparison against a dummy hash so response timing does not reveal whether an account exists.
 - **Every request** passes through `JwtAuthenticationFilter`, which verifies the signature and expiry, then reloads the user from PostgreSQL. A token for a deleted account is rejected.
-- **Stateless**: no sessions, no cookies, CSRF disabled because the API only accepts bearer tokens from a separate origin. CORS is restricted to `CORS_ALLOWED_ORIGINS`.
-- **User isolation**: services always scope queries by the authenticated user id taken from the security context, never from the request body.
-- **Fail-fast configuration**: the application refuses to start if `JWT_SECRET` is missing or shorter than 32 characters.
+- **Stateless**: no sessions, no cookies on the API, CSRF disabled because the API only accepts bearer tokens from a separate origin. CORS is restricted to `CORS_ALLOWED_ORIGINS`, to the `Authorization`, `Content-Type` and `X-Request-Id` headers, and exposes only the correlation and rate-limit headers.
+- **User isolation**: services always scope queries by the authenticated user id taken from the security context, never from the request body. Foreign resources answer 404, never 403.
+- **Fail-fast configuration**: the application refuses to start if `JWT_SECRET` is missing or shorter than 32 characters. No secret has a default; `.env*` files are git-ignored.
+- **Input validation** on every body and query parameter (Bean Validation), file uploads checked by type, signature, size and extractability, tags and emails normalized, all persistence through JPA parameters (no string-built SQL).
+- **Security headers** from Spring Security's defaults (`X-Content-Type-Options`, `X-Frame-Options: DENY`, no-store cache control); the actuator exposes only `health` and `info`; Swagger can be switched off with `SWAGGER_ENABLED=false`.
+- **Frontend token storage**: the JWT is kept in a `SameSite=Lax` cookie (marked `Secure` on HTTPS) so the Next.js proxy can redirect server-side. It is readable by page JavaScript, the same exposure as local storage; moving to an HttpOnly cookie through a backend-for-frontend route is listed under future improvements.
+
+### Rate limiting
+
+`POST /api/ai/flashcards`, `POST /api/ai/flashcards/upload` and `POST /api/ai/quiz` are limited per user to `AI_RATE_LIMIT` requests per rolling hour (default 20). `RateLimitService` keeps a fixed window per user in memory (the app runs as one instance; the limit bounds AI spend rather than enforcing a strict quota), `RateLimitInterceptor` applies it only to `/api/ai/**` after authentication, and every AI response carries `X-RateLimit-Limit` and `X-RateLimit-Remaining`. Once spent, the API returns `429 RATE_LIMITED` with a `Retry-After` header and a message saying how long to wait. Cache hits still count as requests, which keeps the rule simple and predictable. Expired windows are swept so memory stays bounded.
+
+### Logging and observability
+
+`RequestLoggingFilter` gives every request a correlation id (an incoming `X-Request-Id` is honoured when it is 8–64 safe characters, otherwise a UUID is generated), echoes it on the response, and writes one access line per request with method, path, status and duration. The id and, once authenticated, the user id are in the MDC, so every log line of a request can be tied together:
+
+```
+2026-09-09T18:02:11.412+05:30  INFO [4f1c…] [user:12] c.r.ai.AiCacheService : AI cache miss for FLASHCARDS (claude-opus-5/v1)
+2026-09-09T18:02:14.980+05:30  INFO [4f1c…] [user:12] c.r.ai.AnthropicClaudeClient : Claude FLASHCARDS call finished in 3560 ms: stop=end_turn in=1812 out=944
+2026-09-09T18:02:15.031+05:30  INFO [4f1c…] [user:12] com.recallai.access : POST /api/ai/flashcards -> 201 (3702 ms)
+```
+
+AI calls log latency, token usage, cache hit or miss, retry count and failures. Never logged: passwords, tokens, the API key, request bodies, query strings or study content.
+
+### What happens when Claude is unavailable
+
+Only the two generation endpoints depend on the model. Everything else (auth, decks, cards, reviews, scheduling, quizzes already stored, analytics) keeps working. A generation request that fails after the retry policy returns `502 AI_ERROR` or `502 AI_INVALID_RESPONSE` with a plain message, nothing is persisted, and any chunk that did succeed is already cached so the retry is cheaper. Without an API key configured the server starts normally and the generation endpoints return a clear configuration error.
+
+### Production configuration
+
+| Setting | Behaviour |
+|---|---|
+| `server.shutdown=graceful` | In-flight requests (including slow AI calls) finish before the JVM stops |
+| `server.compression` | Responses over 1 KB are gzip-compressed |
+| `FORWARD_HEADERS_STRATEGY=framework` | Honours `X-Forwarded-*` from the load balancer so redirects and `Secure` cookies work behind TLS termination |
+| `SWAGGER_ENABLED` | Hide API docs in production |
+| `LOG_LEVEL` | Application log level without touching framework noise |
+| Docker images | Non-root users, multi-stage builds, JRE-only runtime, health checks in compose |
 
 ### Error format
 
@@ -351,7 +385,8 @@ Backend (`backend/.env.example`):
 | `AI_MAX_INPUT_CHARS`, `AI_MAX_CARDS`, `AI_MAX_QUIZ_QUESTIONS` | Size limits per generation request |
 | `AI_VALIDATION_RETRIES`, `AI_TRANSPORT_RETRIES` | Corrective re-asks after invalid output; extra attempts after transient failures |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated frontend origins |
-| `AI_RATE_LIMIT` | AI generation requests per user per hour |
+| `AI_RATE_LIMIT` | AI generation requests per user per hour (429 with `Retry-After` beyond it) |
+| `SWAGGER_ENABLED`, `FORWARD_HEADERS_STRATEGY`, `LOG_LEVEL` | Production toggles |
 | `MASTERED_INTERVAL_DAYS` | SM-2 interval at which a card counts as mastered (default 21) |
 | `WEAK_TOPIC_MIN_REVIEWS`, `WEAK_TOPIC_QUALITY_THRESHOLD`, `WEAK_TOPIC_RECENT_WINDOW` | Weak-topic rule: minimum history, recent-average threshold, window size |
 | `MAX_UPLOAD_SIZE` | Upload limit for study material |
@@ -380,5 +415,5 @@ cd frontend && npm run lint && npm test && npm run build
 8. ✅ Quizzes: generation from deck or material, answer-free quiz view, scored attempts with explanations
 9. ✅ Weak topics and analytics: deterministic weak-topic rule, dashboard summary, activity, retention and mastery series
 10. ✅ Frontend: auth, dashboard, decks, generation, study session, quizzes, analytics, settings
-11. Production hardening
+11. ✅ Production hardening: per-user AI rate limiting, request correlation and access logging, security review, graceful shutdown, compression, production toggles
 12. AWS deployment
