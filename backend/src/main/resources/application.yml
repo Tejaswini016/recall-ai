@@ -65,5 +65,13 @@ recallai:
     mastered-interval-days: ${MASTERED_INTERVAL_DAYS:21}
   ai:
     api-key: ${CLAUDE_API_KEY:}
-    model: ${CLAUDE_MODEL:claude-sonnet-5}
+    # The model id is part of every cache key, so changing it never serves stale output.
+    model: ${CLAUDE_MODEL:claude-opus-5}
+    effort: ${CLAUDE_EFFORT:medium}
+    max-tokens: ${CLAUDE_MAX_TOKENS:8192}
+    max-input-chars: ${AI_MAX_INPUT_CHARS:12000}
+    max-cards: ${AI_MAX_CARDS:30}
+    max-quiz-questions: ${AI_MAX_QUIZ_QUESTIONS:15}
+    validation-retries: ${AI_VALIDATION_RETRIES:1}
+    transport-retries: ${AI_TRANSPORT_RETRIES:1}
     rate-limit-per-hour: ${AI_RATE_LIMIT:20}
