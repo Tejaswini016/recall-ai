@@ -2,7 +2,7 @@
 
 An AI-powered study companion. Paste notes or upload a PDF, let Claude turn them into flashcards and quizzes, then review with the SM-2 spaced-repetition algorithm so you only study what is actually due.
 
-> **Status:** Phases 1–4 complete (foundation, authentication, decks and cards, SM-2 scheduler). Reviews and AI features land in subsequent phases. This README grows with the project.
+> **Status:** Phases 1–5 complete (foundation, authentication, decks and cards, SM-2 scheduler, review system). AI features land in subsequent phases. This README grows with the project.
 
 ## Why this is more than an AI wrapper
 
@@ -90,6 +90,22 @@ With steady quality-4 recalls a card follows the classic ladder 1 → 6 → 15 �
 
 **Why not let the AI schedule?** Spacing is a well-studied, deterministic problem with a known-good algorithm. A model would be slower, non-reproducible, cost money per review and be impossible to unit test. Claude is used only where language understanding is the job: turning study material into cards and quizzes.
 
+## Review system
+
+`ReviewService` is the only code that changes a card's schedule, and it never does arithmetic itself:
+
+```
+ReviewController → ReviewService → Sm2Service (pure) → ReviewHistoryRepository
+```
+
+- **Queue** (`GET /api/reviews/due`): returns only cards with `due_date <= today`, ordered most-overdue first, then lowest ease factor (weakest) first. Future cards are never included. The response carries `totalDue` even when a `limit` truncates the list, and each card reports `daysOverdue`.
+- **Grading** (`POST /api/reviews/{cardId}` with `{"quality": 0..5}`): in one transaction the card row is locked (`SELECT … FOR UPDATE`) so concurrent gradings cannot race, SM-2 computes the next schedule, the card is updated, and a `review_history` row records the before/after interval and ease. The response includes the new schedule, whether the card is now mastered, and how many cards remain due today.
+- **Mastered**: a card is mastered when its interval reaches `MASTERED_INTERVAL_DAYS` (default 21, Anki's "mature" threshold). Deck statistics count mastered cards with the same rule.
+- **Streaks** (`GET /api/reviews/streak`): computed from the distinct UTC days on which the user reviewed anything. `StreakCalculator` walks actual calendar dates, so a gap breaks the run and a streak that ended yesterday still counts as current (the user can extend it today). Longest streak is tracked independently of the current one.
+- **History** (`GET /api/reviews/history`): paginated, newest first, with the card question and deck name for the activity feed.
+
+Days are currently computed in UTC; per-user time zones are a listed future improvement.
+
 ## Security and authentication
 
 - **Registration and login** issue a signed JWT (HS256) containing only the user id and email. Tokens expire after `JWT_EXPIRATION_MINUTES`.
@@ -136,6 +152,10 @@ Interactive documentation is served at `/swagger-ui.html` (OpenAPI JSON at `/v3/
 | GET | `/api/cards/{id}` | Bearer | Get card |
 | PUT | `/api/cards/{id}` | Bearer | Update card content (scheduling fields are read-only here) |
 | DELETE | `/api/cards/{id}` | Bearer | Delete card |
+| GET | `/api/reviews/due` | Bearer | Due queue (`deckId`, `limit`), overdue and weakest first |
+| POST | `/api/reviews/{cardId}` | Bearer | Grade a card 0–5; returns the new SM-2 schedule and cards remaining |
+| GET | `/api/reviews/streak` | Bearer | Current streak, longest streak, last active day, reviews today |
+| GET | `/api/reviews/history` | Bearer | Paginated review history |
 | GET | `/api/search?q=` | Bearer | Top decks and cards matching a query |
 | GET | `/api/tags` | Bearer | All tags the user has used |
 
@@ -216,7 +236,7 @@ cd frontend && npm run lint && npm run build
 2. ✅ Authentication (JWT)
 3. ✅ Decks and cards: CRUD, tags, PostgreSQL full-text search, per-user isolation
 4. ✅ SM-2 scheduler with comprehensive tests
-5. Review queue, history, streaks
+5. ✅ Review queue, grading, history, streaks, mastered cards
 6. Claude integration: structured output, validation, retries, caching
 7. AI flashcards from pasted text and PDF/TXT uploads
 8. Quizzes
