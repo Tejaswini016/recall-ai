@@ -11,6 +11,10 @@
   --success: #16a34a;
   --warning: #d97706;
   --danger: #dc2626;
+  /* Chart palette: validated categorical slot 1 and reserved status colours. */
+  --chart-1: #2a78d6;
+  --chart-critical: #d03b3b;
+  --chart-good: #0ca30c;
 }
 
 @theme inline {
@@ -35,9 +39,47 @@
     --muted: #94a3b8;
     --border: #1f2937;
     --primary: #6366f1;
+    --chart-1: #3987e5;
   }
 }
 
 body {
   font-family: var(--font-sans);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: fade-up 180ms ease-out both;
+}
+
+@keyframes flip-in {
+  from {
+    opacity: 0;
+    transform: rotateX(-12deg) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: rotateX(0) translateY(0);
+  }
+}
+
+.animate-flip {
+  animation: flip-in 220ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in,
+  .animate-flip {
+    animation: none;
+  }
 }
