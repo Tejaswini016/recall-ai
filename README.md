@@ -2,7 +2,7 @@
 
 An AI-powered study companion. Paste notes or upload a PDF, let Claude turn them into flashcards and quizzes, then review with the SM-2 spaced-repetition algorithm so you only study what is actually due.
 
-> **Status:** Phases 1–6 complete (foundation, authentication, decks and cards, SM-2 scheduler, review system, Claude integration). Flashcard upload, quizzes, analytics and the frontend land in subsequent phases. This README grows with the project.
+> **Status:** Phases 1–7 complete (foundation, authentication, decks and cards, SM-2 scheduler, review system, Claude integration, AI flashcards from notes and uploads). Quizzes, analytics and the frontend land in subsequent phases. This README grows with the project.
 
 ## Why this is more than an AI wrapper
 
@@ -141,7 +141,7 @@ The response shapes are:
 
 ### Guaranteeing structured output
 
-Two independent layers. The API is asked for schema-constrained JSON, and the backend still validates everything as if it were not. `AiResponseValidator` checks that the text parses as a JSON object (a ```json fence is tolerated, prose around JSON is not), that the array exists and is non-empty and within the requested count, and per item that every required field is present, of the right type, non-blank and within length limits; quiz options must be four distinct non-empty strings and the answer index in range. Tags are normalized exactly like user-entered tags. Duplicate questions are dropped. Any problem is reported with its path (`cards[2].answer is missing`), and only validated `GeneratedFlashcard` / `GeneratedQuizQuestion` records leave the package.
+Two independent layers. The API is asked for schema-constrained JSON, and the backend still validates everything as if it were not. `AiResponseValidator` checks that the text parses as a JSON object (a ```json fence is tolerated, prose around JSON is not), that the array exists and is non-empty (extra items beyond the requested count are dropped rather than triggering a paid retry), and per item that every required field is present, of the right type, non-blank and within length limits; quiz options must be four distinct non-empty strings and the answer index in range. Tags are normalized exactly like user-entered tags. Duplicate questions are dropped. Any problem is reported with its path (`cards[2].answer is missing`), and only validated `GeneratedFlashcard` / `GeneratedQuizQuestion` records leave the package.
 
 ### AI failure handling
 
@@ -158,6 +158,12 @@ Invalid output is never persisted and never cached. Tests simulate malformed JSO
 ### Content-hash caching
 
 Before calling the model, `AiCacheService` computes `SHA-256(normalize(material) + params)` where normalization applies Unicode NFC, lower-casing and whitespace collapsing, and `params` carries the requested count. The cache key is `(hash, operation, model, prompt version)`; a hit returns the validated items without a call, a miss stores them only after validation. Rows are content-addressed rather than user-addressed, so two students pasting the same chapter share one model call, and no user-specific data is ever cached. Concurrent inserts of the same key are tolerated.
+
+### Study material input and chunking
+
+Students paste notes (`POST /api/ai/flashcards`) or upload a `.txt` or `.pdf` (`POST /api/ai/flashcards/upload`, multipart). `StudyMaterialExtractor` validates the upload before anything else happens: non-empty, a supported type (checked by extension, content type and, for PDFs, the `%PDF` signature), parseable, not encrypted, and containing extractable text (scanned PDFs are rejected with a clear message). Text is extracted with Apache PDFBox, control characters are stripped, whitespace is normalized and the result is capped at `MATERIAL_MAX_CHARS`. Uploads are also capped at `MAX_UPLOAD_SIZE` by the servlet container.
+
+Large documents are never sent to the model in one request. `TextChunker` splits the material into pieces of at most `AI_MAX_INPUT_CHARS`, preferring paragraph boundaries, then sentence boundaries, and only then a cut at the nearest whitespace; no text is lost. A request may span at most `MATERIAL_MAX_CHUNKS` pieces, which bounds the cost of one click. The requested card count is shared across chunks in proportion to their length, each chunk is generated (and cached) independently, results are merged with cross-chunk de-duplication, and the cards are saved to the deck in a single transaction. Model calls run outside any database transaction. If a chunk fails after retries nothing is saved, but the chunks that succeeded are already cached, so retrying only pays for the failed piece.
 
 ### Cost controls
 
@@ -221,6 +227,8 @@ Interactive documentation is served at `/swagger-ui.html` (OpenAPI JSON at `/v3/
 | POST | `/api/reviews/{cardId}` | Bearer | Grade a card 0–5; returns the new SM-2 schedule and cards remaining |
 | GET | `/api/reviews/streak` | Bearer | Current streak, longest streak, last active day, reviews today |
 | GET | `/api/reviews/history` | Bearer | Paginated review history |
+| POST | `/api/ai/flashcards` | Bearer | Generate cards from pasted text (`deckId`, `text`, optional `count`) |
+| POST | `/api/ai/flashcards/upload` | Bearer | Generate cards from a `.txt`/`.pdf` upload (multipart `file`, `deckId`, optional `count`) |
 | GET | `/api/search?q=` | Bearer | Top decks and cards matching a query |
 | GET | `/api/tags` | Bearer | All tags the user has used |
 
@@ -286,6 +294,7 @@ Backend (`backend/.env.example`):
 | `AI_RATE_LIMIT` | AI generation requests per user per hour |
 | `MASTERED_INTERVAL_DAYS` | SM-2 interval at which a card counts as mastered (default 21) |
 | `MAX_UPLOAD_SIZE` | Upload limit for study material |
+| `MATERIAL_MAX_CHARS`, `MATERIAL_MAX_CHUNKS` | Largest extracted text per generation and how many model-sized chunks it may span |
 
 Frontend (`frontend/.env.example`): `NEXT_PUBLIC_API_URL` – base URL of the API as seen from the browser.
 
@@ -306,7 +315,7 @@ cd frontend && npm run lint && npm run build
 4. ✅ SM-2 scheduler with comprehensive tests
 5. ✅ Review queue, grading, history, streaks, mastered cards
 6. ✅ Claude integration: versioned prompts, structured output, strict validation, corrective retries, content-hash cache, fake client for tests
-7. AI flashcards from pasted text and PDF/TXT uploads
+7. ✅ AI flashcards from pasted text and PDF/TXT uploads with extraction, chunking and persistence
 8. Quizzes
 9. Weak topics and analytics
 10. Frontend
