@@ -1,11 +1,14 @@
 package com.recallai.repository;
 
 import com.recallai.entity.Card;
+import jakarta.persistence.LockModeType;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,6 +16,42 @@ public interface CardRepository extends JpaRepository<Card, Long> {
 
     /** Ownership travels through the deck: a card in another user's deck does not exist for this user. */
     Optional<Card> findByIdAndDeckUserId(Long id, Long userId);
+
+    /**
+     * Same ownership check, but takes a row lock so two concurrent gradings of the same
+     * card are serialized instead of racing on the SM-2 state.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Card c WHERE c.id = :cardId AND c.deck.user.id = :userId")
+    Optional<Card> findOwnedForUpdate(@Param("cardId") Long cardId, @Param("userId") Long userId);
+
+    /**
+     * The review queue: only cards due on or before {@code today}, most overdue first, then
+     * weakest (lowest ease) first. Future cards are never returned.
+     */
+    @Query("""
+            SELECT c FROM Card c JOIN FETCH c.deck d
+            WHERE d.user.id = :userId AND c.dueDate <= :today
+            ORDER BY c.dueDate ASC, c.easeFactor ASC, c.id ASC
+            """)
+    List<Card> findDue(@Param("userId") Long userId, @Param("today") LocalDate today, Pageable pageable);
+
+    @Query("""
+            SELECT c FROM Card c JOIN FETCH c.deck d
+            WHERE d.user.id = :userId AND d.id = :deckId AND c.dueDate <= :today
+            ORDER BY c.dueDate ASC, c.easeFactor ASC, c.id ASC
+            """)
+    List<Card> findDueInDeck(@Param("userId") Long userId, @Param("deckId") Long deckId,
+                             @Param("today") LocalDate today, Pageable pageable);
+
+    @Query("SELECT count(c) FROM Card c WHERE c.deck.user.id = :userId AND c.dueDate <= :today")
+    long countDue(@Param("userId") Long userId, @Param("today") LocalDate today);
+
+    @Query("""
+            SELECT count(c) FROM Card c
+            WHERE c.deck.user.id = :userId AND c.deck.id = :deckId AND c.dueDate <= :today
+            """)
+    long countDueInDeck(@Param("userId") Long userId, @Param("deckId") Long deckId, @Param("today") LocalDate today);
 
     /**
      * Card search scoped to the owner, optionally to one deck, with full-text search over

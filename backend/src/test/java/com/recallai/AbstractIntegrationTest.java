@@ -34,7 +34,7 @@ public abstract class AbstractIntegrationTest {
     protected ObjectMapper objectMapper;
 
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    protected JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void resetDatabase() {
