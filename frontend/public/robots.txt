@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /dashboard
+Disallow: /decks
+Disallow: /study
+Disallow: /quiz
+Disallow: /analytics
+Disallow: /settings
