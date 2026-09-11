@@ -18,6 +18,7 @@ import org.springframework.validation.annotation.Validated;
  * @param validationRetries    corrective re-asks after an invalid response before giving up
  * @param transportRetries     extra attempts after a transient API failure (on top of the SDK's own retries)
  * @param rateLimitPerHour     AI generation requests allowed per user per hour
+ * @param demoMode             replace Claude with a local heuristic generator (no key, no cost, not AI)
  */
 @Validated
 @ConfigurationProperties(prefix = "recallai.ai")
@@ -31,9 +32,21 @@ public record AiProperties(
         @Min(1) int maxQuizQuestions,
         @Min(0) int validationRetries,
         @Min(0) int transportRetries,
-        @Min(1) int rateLimitPerHour) {
+        @Min(1) int rateLimitPerHour,
+        boolean demoMode) {
+
+    public static final String DEMO_MODEL = "demo";
 
     public boolean hasApiKey() {
         return apiKey != null && !apiKey.isBlank();
+    }
+
+    /** Cache keys use this so demo output and real model output never mix. */
+    public String effectiveModel() {
+        return demoMode ? DEMO_MODEL : model;
+    }
+
+    public boolean generationAvailable() {
+        return demoMode || hasApiKey();
     }
 }

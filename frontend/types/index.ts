@@ -243,6 +243,12 @@ export interface TopicPerformance {
   weak: boolean;
 }
 
+export interface AiStatus {
+  available: boolean;
+  demoMode: boolean;
+  model: string;
+}
+
 export interface SearchResponse {
   decks: Deck[];
   cards: Card[];

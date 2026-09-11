@@ -42,7 +42,7 @@ public class AiGenerationService {
         int count = clamp(requestedCards, properties.maxCards());
         checkMaterial(material);
         AiCacheService.CacheKey key = AiCacheService.CacheKey.of(material, "count=" + count, AiOperation.FLASHCARDS,
-                properties.model(), promptService.promptVersion(AiOperation.FLASHCARDS));
+                properties.effectiveModel(), promptService.promptVersion(AiOperation.FLASHCARDS));
 
         Optional<List<GeneratedFlashcard>> cached = cacheService.lookup(key, FLASHCARD_LIST);
         if (cached.isPresent()) {
@@ -60,7 +60,7 @@ public class AiGenerationService {
         int count = clamp(requestedQuestions, properties.maxQuizQuestions());
         checkMaterial(material);
         AiCacheService.CacheKey key = AiCacheService.CacheKey.of(material, "count=" + count, AiOperation.QUIZ,
-                properties.model(), promptService.promptVersion(AiOperation.QUIZ));
+                properties.effectiveModel(), promptService.promptVersion(AiOperation.QUIZ));
 
         Optional<List<GeneratedQuizQuestion>> cached = cacheService.lookup(key, QUIZ_LIST);
         if (cached.isPresent()) {

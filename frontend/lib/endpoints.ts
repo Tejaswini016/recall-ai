@@ -1,6 +1,7 @@
 import { apiFetch, query } from "@/lib/api";
 import type {
   ActivityPoint,
+  AiStatus,
   AnalyticsSummary,
   AnswerSubmission,
   AuthResponse,
@@ -62,6 +63,7 @@ export const api = {
       apiFetch<PageResponse<ReviewHistoryItem>>(`/api/reviews/history${query(params)}`),
   },
   ai: {
+    status: () => apiFetch<AiStatus>("/api/ai/status"),
     flashcards: (body: { deckId: number; text: string; count?: number }) =>
       apiFetch<GenerateCardsResponse>("/api/ai/flashcards", { method: "POST", body }),
     flashcardsUpload: (deckId: number, file: File, count?: number) => {

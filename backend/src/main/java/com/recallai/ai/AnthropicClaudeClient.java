@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
@@ -31,6 +32,7 @@ import org.springframework.stereotype.Component;
  * logged here.
  */
 @Component
+@ConditionalOnProperty(prefix = "recallai.ai", name = "demo-mode", havingValue = "false", matchIfMissing = true)
 public class AnthropicClaudeClient implements ClaudeClient {
 
     private static final Logger log = LoggerFactory.getLogger(AnthropicClaudeClient.class);

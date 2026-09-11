@@ -24,6 +24,7 @@ recallai:
     validation-retries: 1
     transport-retries: 0
     rate-limit-per-hour: 20
+    demo-mode: false
 
 logging:
   level:

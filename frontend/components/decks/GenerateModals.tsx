@@ -5,6 +5,7 @@ import { FileText, Upload } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Field";
 import { Modal } from "@/components/ui/Modal";
+import { AiStatusNotice } from "@/components/decks/AiStatusNotice";
 import { useToast } from "@/components/providers/ToastProvider";
 import { errorMessage } from "@/lib/api";
 import { api } from "@/lib/endpoints";
@@ -80,6 +81,7 @@ export function GenerateCardsModal({
       size="lg"
     >
       <form onSubmit={submit} className="space-y-4">
+        <AiStatusNotice />
         <div className="flex rounded-lg border border-border p-0.5" role="tablist">
           {(["paste", "upload"] as const).map((m) => (
             <button
@@ -209,6 +211,7 @@ export function GenerateQuizModal({
   return (
     <Modal open={open} onClose={() => !busy && onClose()} title="Generate a quiz" description="Multiple-choice questions with an explanation for every answer.">
       <form onSubmit={submit} className="space-y-4">
+        <AiStatusNotice />
         <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={`${deckName} quiz`} maxLength={200} />
         <Input label="Questions" type="number" min={1} max={30} value={count} onChange={(e) => setCount(Number(e.target.value))} className="sm:w-48" />
         <label className="flex items-center gap-2 text-sm">

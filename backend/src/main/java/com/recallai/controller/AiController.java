@@ -1,5 +1,7 @@
 package com.recallai.controller;
 
+import com.recallai.ai.AiProperties;
+import com.recallai.dto.AiStatusResponse;
 import com.recallai.dto.GenerateCardsResponse;
 import com.recallai.dto.GenerateFlashcardsRequest;
 import com.recallai.dto.GenerateQuizRequest;
@@ -16,6 +18,7 @@ import jakarta.validation.constraints.Min;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,11 +36,20 @@ public class AiController {
 
     private final FlashcardGenerationService flashcardGenerationService;
     private final QuizGenerationService quizGenerationService;
+    private final AiProperties aiProperties;
 
     public AiController(FlashcardGenerationService flashcardGenerationService,
-                        QuizGenerationService quizGenerationService) {
+                        QuizGenerationService quizGenerationService, AiProperties aiProperties) {
         this.flashcardGenerationService = flashcardGenerationService;
         this.quizGenerationService = quizGenerationService;
+        this.aiProperties = aiProperties;
+    }
+
+    @GetMapping("/status")
+    @Operation(summary = "Whether generation is available, and whether it is real Claude output or demo mode")
+    public AiStatusResponse status() {
+        return new AiStatusResponse(aiProperties.generationAvailable(), aiProperties.demoMode(),
+                aiProperties.effectiveModel());
     }
 
     @PostMapping("/flashcards")

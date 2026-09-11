@@ -272,6 +272,10 @@ Large documents are never sent to the model in one request. `TextChunker` splits
 - Every call logs latency, input and output tokens, cache hit or miss and retry count. Study content and keys are never logged.
 - Per-user rate limiting of the generation endpoints (`AI_RATE_LIMIT`); see [Rate limiting](#rate-limiting).
 
+### Demo mode (no API key)
+
+Set `AI_DEMO_MODE=true` and the backend swaps `AnthropicClaudeClient` for `DemoClaudeClient`, which builds cards and quiz questions from the pasted notes with simple sentence heuristics: no network, no key, no cost. It exists so the whole flow (upload, chunking, validation, caching, persistence, rate limiting, the study session) can be demonstrated on a laptop or in an interview without spending anything. It is **not AI**: every card is tagged `demo`, its explanation says so, the model recorded in the cache is `demo` so demo output never mixes with real output, the generate dialogs show an amber "Demo mode is on" notice (driven by `GET /api/ai/status`), and the README says so here. Turn it off and set `CLAUDE_API_KEY` for real generation.
+
 ### Handling hallucination
 
 The prompt restricts the model to the supplied material and tells it to produce fewer items rather than invent, the material is delimited so it cannot be read as instructions, and every generated card is shown to the user before study. The application does not claim to detect factual errors; it minimizes their likelihood and keeps the human in the loop.
@@ -421,6 +425,7 @@ Interactive documentation is served at `/swagger-ui.html` (OpenAPI JSON at `/v3/
 | GET | `/api/analytics/mastery` | Bearer | Cumulative cards mastered per day (`days`) |
 | GET | `/api/analytics/topics` | Bearer | Per-topic performance, weakest first (`deckId`) |
 | GET | `/api/analytics/weak-topics` | Bearer | Only topics flagged weak (`deckId`) |
+| GET | `/api/ai/status` | Bearer | Whether generation is available and whether demo mode is on |
 | GET | `/api/search?q=` | Bearer | Top decks and cards matching a query |
 | GET | `/api/tags` | Bearer | All tags the user has used |
 
@@ -484,6 +489,7 @@ Backend (`backend/.env.example`):
 | `AI_VALIDATION_RETRIES`, `AI_TRANSPORT_RETRIES` | Corrective re-asks after invalid output; extra attempts after transient failures |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated frontend origins |
 | `AI_RATE_LIMIT` | AI generation requests per user per hour (429 with `Retry-After` beyond it) |
+| `AI_DEMO_MODE` | `true` replaces Claude with a local heuristic generator for key-free demos (output tagged `demo`, not AI) |
 | `SWAGGER_ENABLED`, `FORWARD_HEADERS_STRATEGY`, `LOG_LEVEL` | Production toggles |
 | `MASTERED_INTERVAL_DAYS` | SM-2 interval at which a card counts as mastered (default 21) |
 | `WEAK_TOPIC_MIN_REVIEWS`, `WEAK_TOPIC_QUALITY_THRESHOLD`, `WEAK_TOPIC_RECENT_WINDOW` | Weak-topic rule: minimum history, recent-average threshold, window size |
@@ -677,7 +683,7 @@ Screens to capture are listed in `docs/screenshots/README.md` together with a on
 - **Why separate frontend and backend?** Independent deployment and scaling, a documented API that other clients could use, and the Claude key and database stay server-side.
 - **Why keep SM-2 independent?** So it can be unit-tested exhaustively, reasoned about in isolation, and swapped (for example for FSRS) without touching controllers or persistence.
 - **Why cache AI requests?** The same material is common (re-uploads, retries after a failed chunk, classmates), the model is the slowest and most expensive component, and validated output is safe to reuse.
-- **What if Claude is unavailable?** Only generation degrades, with a controlled 502; review, scheduling, stored quizzes and analytics keep working; successful chunks stay cached.
+- **What if Claude is unavailable?** Only generation degrades, with a controlled 502; review, scheduling, stored quizzes and analytics keep working; successful chunks stay cached. For key-free demos `AI_DEMO_MODE` substitutes a clearly labelled heuristic generator behind the same `ClaudeClient` seam.
 
 ### Engineering
 
