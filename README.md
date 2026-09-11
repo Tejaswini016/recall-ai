@@ -1,10 +1,39 @@
 # RecallAI
 
+## Table of contents
+
+1. [Project overview](#project-overview)
+2. [Problem statement](#problem-statement)
+3. [Features](#features)
+4. [Architecture](#architecture)
+5. [Technology stack](#technology-stack)
+6. [Database schema](#database-schema)
+7. [SM-2 spaced repetition](#sm-2-spaced-repetition)
+8. [Review system](#review-system)
+9. [AI architecture](#ai-architecture) (prompt engineering, structured output, failure handling, caching, chunking, cost, hallucination)
+10. [Quizzes](#quizzes)
+11. [Weak topics and analytics](#weak-topics-and-analytics)
+12. [Frontend](#frontend)
+13. [Security](#security-and-authentication) (rate limiting, logging, production configuration, error format)
+14. [API documentation](#api)
+15. [Local setup](#local-setup-without-docker)
+16. [Docker setup](#docker-setup)
+17. [Environment variables](#environment-variables)
+18. [Testing](#testing)
+19. [Continuous integration](#continuous-integration)
+20. [AWS deployment](#aws-deployment)
+21. [Screenshots](#screenshots)
+22. [Future improvements](#future-improvements)
+23. [Interview talking points](#interview-talking-points)
+24. [Development history](#development-history)
+
+## Project overview
+
 An AI-powered study companion. Paste notes or upload a PDF, let Claude turn them into flashcards and quizzes, then review with the SM-2 spaced-repetition algorithm so you only study what is actually due.
 
-> **Status:** Phases 1–11 complete (full feature set, frontend, production hardening). AWS deployment documentation follows. This README grows with the project.
+> **Status:** All twelve phases complete: full backend feature set, Next.js frontend, production hardening, CI and an AWS deployment guide.
 
-## Why this is more than an AI wrapper
+### Why this is more than an AI wrapper
 
 Claude does exactly two things here: generate flashcards and generate quizzes from user-supplied material. Everything else is deterministic software:
 
@@ -16,13 +45,76 @@ Claude does exactly two things here: generate flashcards and generate quizzes fr
 
 The model never sees credentials, never decides what is due, and its output is never trusted without validation.
 
-## Technology stack
+## Problem statement
 
-- **Backend:** Java 21, Spring Boot 3.5, Spring Web, Spring Data JPA, Spring Security, Bean Validation, Flyway, PostgreSQL 16, springdoc-openapi, JUnit 5, Mockito, Testcontainers
-- **Frontend:** Next.js 16 (App Router), TypeScript, Tailwind CSS 4
-- **Infrastructure:** Docker, docker-compose, environment-variable configuration
+Students collect notes faster than they can learn them. Re-reading feels productive but decays quickly; writing good flashcards by hand takes longer than the studying itself; and without a schedule, revision is either everything at once before an exam or nothing at all.
 
-## Repository layout
+Two things are known to work and are rarely combined well:
+
+- **Active recall**: answering a question from memory beats re-reading.
+- **Spaced repetition**: reviewing just before you would forget makes each review count, and the SM-2 algorithm has scheduled that for decades.
+
+RecallAI removes the two frictions. A language model writes the questions from the student's own material, and a deterministic scheduler decides when each one comes back. The student's job shrinks to grading their own recall a few times a day.
+
+## Features
+
+- Register and log in; every deck, card, review and quiz is private to its owner.
+- Create decks with subject, description and tags; search and filter them.
+- Paste notes or upload `.txt` / `.pdf` study material; large documents are chunked automatically.
+- Generate flashcards with Claude, validated against a strict schema before anything is saved.
+- Review one card at a time, reveal the answer and explanation, rate recall 0–5 with keyboard shortcuts.
+- SM-2 scheduling per card; a daily queue that contains only cards that are actually due, overdue and weakest first.
+- Generate multiple-choice quizzes from a deck or from notes; take them one question at a time; get explanations for misses; retry.
+- Weak-topic detection from review history, with configurable thresholds and no model involved.
+- Dashboard with due, reviewed, streak and mastered tiles; analytics with activity, retention, mastery and topic charts.
+- Study streaks computed from real calendar days.
+- Full-text search across decks and cards in PostgreSQL.
+- Content-hash caching of AI responses, corrective retries on invalid output, per-user rate limiting on AI endpoints.
+- Consistent JSON errors, request correlation ids, structured logging, OpenAPI docs, Docker images, CI.
+
+## Architecture
+
+```
+                     ┌──────────────────────────┐
+   browser  ───────▶ │  Next.js 16 (frontend)    │   proxy.ts: token → redirects
+                     │  client-rendered pages    │   lib/api.ts: bearer token, error mapping
+                     └────────────┬─────────────┘
+                                  │ HTTPS  /api/**  (JSON, Authorization: Bearer <JWT>)
+                                  ▼
+   ┌──────────────────────────────────────────────────────────────────┐
+   │  Spring Boot 3.5 (backend)                                       │
+   │  RequestLoggingFilter → JwtAuthenticationFilter → RateLimit(/ai) │
+   │                                                                  │
+   │  Controllers (thin)  →  Services (business rules)  →  JPA repos  │
+   │       │                    │            │                        │
+   │       │            Sm2Service      AiGenerationService           │
+   │       │            (pure)          cache → prompt → retry →      │
+   │       │                            validate → persist            │
+   └───────┼────────────────────┼────────────────┼────────────────────┘
+           │                    │                │
+           ▼                    ▼                ▼
+      OpenAPI/Swagger      PostgreSQL 16     Claude API (official Java SDK)
+                           Flyway schema     structured JSON output
+```
+
+Request flow for the two kinds of work:
+
+```
+Review a card:   ReviewController → ReviewService → Sm2Service → CardRepository + ReviewHistoryRepository
+Generate cards:  AiController → FlashcardGenerationService → StudyMaterialExtractor → TextChunker
+                 → AiGenerationService → AiCacheService | PromptService → AiRetryService → ClaudeClient
+                 → AiResponseValidator → CardService.createAll (one transaction)
+```
+
+Design rules that hold everywhere:
+
+- Controllers carry no business logic; they validate input, resolve the authenticated user and call one service.
+- Entities never leave the service layer; every response is a DTO record.
+- The SM-2 scheduler and the weak-topic rule are pure code with no framework or model dependency.
+- The model is reached through one interface (`ClaudeClient`) so tests substitute a scripted fake.
+- Every query is scoped by the authenticated user id; foreign resources are 404.
+
+### Repository layout
 
 ```
 recall-ai/
@@ -49,6 +141,12 @@ recall-ai/
 ├── docker-compose.yml
 └── .env.example
 ```
+
+## Technology stack
+
+- **Backend:** Java 21, Spring Boot 3.5, Spring Web, Spring Data JPA, Spring Security, Bean Validation, Flyway, PostgreSQL 16, springdoc-openapi, JUnit 5, Mockito, Testcontainers
+- **Frontend:** Next.js 16 (App Router), TypeScript, Tailwind CSS 4
+- **Infrastructure:** Docker, docker-compose, environment-variable configuration
 
 ## Database schema
 
@@ -172,7 +270,7 @@ Large documents are never sent to the model in one request. `TextChunker` splits
 - Input is capped at `AI_MAX_INPUT_CHARS` per request (larger documents are chunked by the caller), output at `CLAUDE_MAX_TOKENS`, item counts at `AI_MAX_CARDS` / `AI_MAX_QUIZ_QUESTIONS`.
 - `CLAUDE_EFFORT` (default `medium`) tunes reasoning depth for what is a well-bounded extraction task.
 - Every call logs latency, input and output tokens, cache hit or miss and retry count. Study content and keys are never logged.
-- Per-user rate limiting of the generation endpoints (`AI_RATE_LIMIT`) is applied in the hardening phase.
+- Per-user rate limiting of the generation endpoints (`AI_RATE_LIMIT`); see [Rate limiting](#rate-limiting).
 
 ### Handling hallucination
 
@@ -399,11 +497,197 @@ Secrets are never committed; `.gitignore` excludes every `.env*` file except the
 ## Testing
 
 ```bash
-cd backend && ./mvnw verify     # unit + integration tests (integration tests use Testcontainers, requires Docker)
+cd backend && ./mvnw verify     # unit + integration tests (Testcontainers starts PostgreSQL; requires Docker)
 cd frontend && npm run lint && npm test && npm run build
 ```
 
-## Roadmap
+**Strategy**
+
+| Layer | What is tested | How |
+|---|---|---|
+| SM-2 scheduler | Every quality 0–5, ease bounds, interval ladder, lapses, due dates, determinism | 35 pure unit tests, parameterized |
+| Streaks, weak topics, quiz scoring, tag normalization, chunking, hashing | Business rules in isolation | Unit tests with fixed clocks |
+| AI validation and retries | Malformed JSON, prose, missing fields, wrong types, empty arrays, bad option counts, out-of-range answers, truncation, corrective retry, transport retry | Unit tests with `FakeClaudeClient` |
+| Services | Orchestration and transaction boundaries | Mockito |
+| REST API | Every endpoint: success, validation, auth, cross-user isolation, pagination, search, rate limiting, correlation ids | MockMvc against a real PostgreSQL container |
+| Frontend | API client (auth header, error mapping, 401 handling), format helpers, rating bar | Vitest + Testing Library |
+
+227 backend tests run in about two minutes: integration tests share one Spring context and truncate the database before each test.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+1. **Backend**: JDK 21, `./mvnw -B verify` (Testcontainers uses the runner's Docker), Surefire reports uploaded as an artifact.
+2. **Frontend**: Node 20, `npm ci`, lint, unit tests, production build.
+3. **Docker**: both images are built once the other jobs pass, so a broken Dockerfile cannot reach `main`.
+
+## AWS deployment
+
+The application ships as two containers and needs one PostgreSQL database. The recommended layout keeps everything behind a single HTTPS hostname so the frontend and API share an origin (CORS becomes a formality and cookies are first-party).
+
+```
+Route 53  ──▶  ACM certificate  ──▶  Application Load Balancer (443)
+                                        ├─ /api/*, /actuator/*, /v3/*, /swagger-ui/*  ──▶  ECS Fargate: recallai-backend (8080)
+                                        └─ /*                                          ──▶  ECS Fargate: recallai-frontend (3000)
+                                              private subnets ──▶ RDS PostgreSQL 16
+              Secrets Manager (DB password, JWT secret, Claude key) · ECR (images) · CloudWatch Logs
+```
+
+Files: `deploy/aws/ecs-task-backend.json`, `deploy/aws/ecs-task-frontend.json` (Fargate task definitions with `<PLACEHOLDERS>`), `deploy/aws/push-images.sh` (build and push to ECR).
+
+### 1. Database (RDS)
+
+- Engine PostgreSQL 16; `db.t4g.micro` is enough to start; storage autoscaling on; Multi-AZ for production.
+- Place it in private subnets with a security group that allows port 5432 **only** from the ECS tasks' security group.
+- Create the database and user `recallai`. Store the password in Secrets Manager as `recallai/db-password`.
+- Nothing else to prepare: Flyway creates and migrates the schema on the first backend start (`ddl-auto=validate` means Hibernate never touches it). Flyway takes a lock, so rolling deployments with two backend tasks are safe.
+
+### 2. Secrets
+
+```bash
+aws secretsmanager create-secret --name recallai/db-password --secret-string '<strong password>'
+aws secretsmanager create-secret --name recallai/jwt-secret  --secret-string "$(openssl rand -base64 48)"
+aws secretsmanager create-secret --name recallai/claude-api-key --secret-string 'sk-ant-...'
+```
+
+The ECS **execution role** needs `secretsmanager:GetSecretValue` on these three ARNs plus the standard `AmazonECSTaskExecutionRolePolicy` (ECR pull, CloudWatch logs). The task definitions inject them as environment variables at start; they never appear in the task definition, the image or the logs.
+
+### 3. Images (ECR)
+
+```bash
+AWS_REGION=eu-west-1 AWS_ACCOUNT_ID=123456789012 APP_DOMAIN=app.example.com ./deploy/aws/push-images.sh
+```
+
+The script creates the two repositories if needed (with scan-on-push), builds both images, tags them with the git SHA and `latest`, and pushes. `NEXT_PUBLIC_API_URL` is baked into the frontend bundle at build time, which is why the domain is an input.
+
+### 4. Backend service (ECS Fargate)
+
+1. Fill in `<ACCOUNT_ID>`, `<REGION>`, `<TAG>`, `<RDS_ENDPOINT>`, `<APP_DOMAIN>` in `deploy/aws/ecs-task-backend.json` and register it:
+   `aws ecs register-task-definition --cli-input-json file://deploy/aws/ecs-task-backend.json`
+2. Create a Fargate service in private subnets (with a NAT gateway so the task can reach the Claude API), desired count 1 (or 2 for availability), attached to a target group on port 8080 with health check path `/actuator/health/readiness` and a health-check grace period of 90 s.
+3. The container health check and `server.shutdown=graceful` mean deployments drain in-flight requests, including slow AI calls (`stopTimeout` is 60 s).
+4. Sizing: 1 vCPU / 2 GB handles the JVM comfortably; `JAVA_TOOL_OPTIONS=-XX:MaxRAMPercentage=75` keeps the heap inside the task.
+
+### 5. Frontend service (ECS Fargate)
+
+Register `deploy/aws/ecs-task-frontend.json` the same way and create a service on port 3000 with health check path `/login`. 0.25 vCPU / 512 MB is plenty; the standalone Next.js server is small.
+
+### 6. Load balancer, domain and HTTPS
+
+1. Request an ACM certificate for `app.example.com` (DNS validation through Route 53).
+2. Create an internet-facing ALB in public subnets with an HTTPS listener (443) using that certificate and an HTTP listener (80) that redirects to 443.
+3. Listener rules on 443, in priority order: path patterns `/api/*`, `/actuator/*`, `/v3/*`, `/swagger-ui/*` to the backend target group; default to the frontend target group.
+4. Route 53 alias record `app.example.com` to the ALB.
+5. Because TLS terminates at the ALB, the backend runs with `FORWARD_HEADERS_STRATEGY=framework` (already in the task definition) so it sees the original scheme and host.
+
+### 7. Environment variables per service
+
+Backend (task definition): `DATABASE_URL`, `DATABASE_USERNAME`, `CLAUDE_MODEL`, `CLAUDE_EFFORT`, `CORS_ALLOWED_ORIGINS=https://app.example.com`, `AI_RATE_LIMIT`, `SWAGGER_ENABLED=false`, `FORWARD_HEADERS_STRATEGY=framework`, `LOG_LEVEL`; secrets `DATABASE_PASSWORD`, `JWT_SECRET`, `CLAUDE_API_KEY`. Every other variable in [Environment variables](#environment-variables) keeps its default.
+
+Frontend: `NEXT_PUBLIC_API_URL=https://app.example.com` (build-time), `NODE_ENV=production`.
+
+### 8. Production configuration checklist
+
+- [ ] `JWT_SECRET` is at least 32 characters and lives only in Secrets Manager.
+- [ ] `SWAGGER_ENABLED=false` unless the API docs are meant to be public.
+- [ ] `CORS_ALLOWED_ORIGINS` lists only the real frontend origin.
+- [ ] RDS is not publicly accessible; automated backups on; deletion protection on.
+- [ ] CloudWatch log groups `/ecs/recallai-backend` and `/ecs/recallai-frontend` exist with a retention policy.
+- [ ] A CloudWatch alarm on the backend target group's unhealthy host count and on 5xx responses.
+- [ ] `AI_RATE_LIMIT` matches the Anthropic spend you are willing to allow per user per hour.
+
+### 9. Verify
+
+```bash
+curl -s https://app.example.com/actuator/health          # {"status":"UP"}
+curl -s -X POST https://app.example.com/api/auth/register -H 'Content-Type: application/json' \
+     -d '{"name":"Smoke","email":"smoke@example.com","password":"smoke-pass-123"}'
+```
+
+Then open `https://app.example.com`, register, create a deck, generate cards from a short note and review one. Check CloudWatch for the access line with the request id and the AI call line with token counts.
+
+### Alternatives
+
+- **AWS App Runner** for both services is the least infrastructure: point it at the ECR images, set the same variables and secrets, and give each service its own domain (then set `CORS_ALLOWED_ORIGINS` to the frontend origin and `NEXT_PUBLIC_API_URL` to the API origin).
+- **A single EC2 instance** with `docker compose up -d` and Caddy or nginx for TLS is the cheapest demo deployment and uses the same images and variables.
+
+## Screenshots
+
+Screens to capture are listed in `docs/screenshots/README.md` together with a one-line Playwright command. Once the PNGs are in place they render here:
+
+| Dashboard | Deck and card generation |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Deck](docs/screenshots/deck.png) |
+
+| Study session | Quiz results | Analytics |
+|---|---|---|
+| ![Study](docs/screenshots/study.png) | ![Quiz results](docs/screenshots/quiz-results.png) | ![Analytics](docs/screenshots/analytics.png) |
+
+## Future improvements
+
+- **Per-user time zones** for "today", streaks and daily charts (currently UTC).
+- **HttpOnly session cookie** via a backend-for-frontend route in Next.js so the token is never readable by page scripts.
+- **Refresh tokens, password reset and email verification.**
+- **Distributed rate limiting** (Redis or DynamoDB) once the backend runs more than one instance; the current limiter is per instance by design.
+- **Asynchronous generation** with a job table and progress polling for very large uploads, instead of holding the HTTP request open.
+- **More input formats**: DOCX, Markdown with images, OCR for scanned PDFs.
+- **FSRS** as an alternative scheduler behind the same `Sm2Service` seam.
+- **Review reminders** (email or push) when cards come due.
+- **Shared and public decks** with copy-to-my-decks.
+- **Observability**: OpenTelemetry traces and Micrometer metrics for AI latency, token spend and cache hit rate.
+- **End-to-end tests** with Playwright against the composed stack.
+
+## Interview talking points
+
+### AI
+
+- **Why Claude?** Strong structured-output support (JSON-schema constrained responses), long context, an official Java SDK with typed errors and built-in retries, and reliable adherence to grounding instructions ("use only the supplied material").
+- **How are prompts designed?** As versioned templates in `ai/`: a rule-heavy system prompt, a user message with the material fenced in `<study_material>` tags, and a JSON Schema for the output. The version string is part of the cache key.
+- **How is structured output guaranteed?** Twice: the API is asked for schema-constrained JSON, and `AiResponseValidator` re-checks types, presence, lengths, ranges and duplicates. Only validated records leave the `ai` package.
+- **What if Claude returns invalid JSON?** The validator throws with a list of problems; `AiRetryService` re-asks once with the rejected reply and the problems quoted back; if still invalid the client gets `502 AI_INVALID_RESPONSE` and nothing is stored or cached.
+- **How do retries work?** Two kinds: corrective retries for invalid content (`AI_VALIDATION_RETRIES`) and transport retries for 429/5xx/network (`AI_TRANSPORT_RETRIES`, on top of the SDK's own). Non-retryable failures (bad key, refusal) are not retried.
+- **How does caching work, and what is the key?** `SHA-256(normalized material + params)` combined with operation, model and prompt version, stored in `ai_cache` after validation. Normalization is NFC, lower-case, whitespace-collapsed. Content-addressed, so nothing user-specific is cached.
+- **How are costs controlled?** Cache first; input, output and item-count caps; chunk limit per request; `medium` effort; per-user hourly rate limit; token usage logged per call.
+- **How are hallucinations handled?** Grounding instructions, delimited material, "fewer rather than invented", and the human always sees generated cards before study. The app reduces likelihood and keeps the person in the loop; it does not claim to detect factual errors.
+
+### Backend
+
+- **Why Spring Boot?** Mature security, transactions, validation and JPA in one coherent stack, first-class testing (MockMvc, Testcontainers), and a structure reviewers recognise.
+- **Why PostgreSQL?** Relational data with real constraints (check constraints enforce SM-2 invariants), arrays for tags, generated `tsvector` columns and GIN indexes for search, JSONB for the AI cache, window functions for analytics.
+- **Why REST?** Simple, cacheable, documented by OpenAPI, and the frontend is a separate origin that only needs JSON.
+- **How is authentication implemented?** BCrypt password hashes; HS256 JWT with user id and email; a filter that verifies the token and reloads the user per request; stateless, no sessions.
+- **How is user data isolated?** Every repository lookup includes the authenticated user id (`findByIdAndUserId`, `findByIdAndDeckUserId`); foreign ids return 404; integration tests cover every endpoint with a second user.
+- **Why DTOs?** Entities are persistence shapes with lazy relations; DTO records fix the API contract, avoid leaking internals (password hash, scheduling fields on update), and serialize predictably.
+- **How is validation handled?** Bean Validation on request records and query parameters, service-level rules (tag normalization, ownership), database constraints as the last line, and one error shape for all of it.
+- **How does rate limiting work?** A per-user fixed window in memory, applied by an interceptor to `/api/ai/**` only, with `X-RateLimit-*` headers and `429` plus `Retry-After`.
+
+### Algorithm
+
+- **What is spaced repetition?** Reviewing information at increasing intervals timed to just before forgetting, so each review strengthens memory efficiently.
+- **What is SM-2?** SuperMemo's 1987 algorithm: per item an ease factor, an interval and a repetition count; intervals 1, 6, then previous times ease; ease adjusted by the recall quality 0–5 and floored at 1.3; a failure restarts the ladder.
+- **What is an ease factor?** A per-card multiplier (starts at 2.5) that grows with easy recalls and shrinks with hard ones; it controls how fast intervals expand.
+- **What is an interval?** Days between the last successful review and the next due date.
+- **What is the repetition count?** Consecutive successful reviews since the last lapse; it selects the first two fixed intervals.
+- **Why not use AI for scheduling?** It is a solved deterministic problem; a model would be slower, non-reproducible, cost money per review and be untestable. `Sm2Service` has 35 tests and no dependencies.
+- **How does quality 0–5 affect scheduling?** Below 3 resets the card to relearn tomorrow with ease unchanged; 3 shrinks ease by 0.14, 4 leaves it, 5 grows it by 0.10, and the interval advances along the ladder using the pre-review ease.
+
+### Architecture
+
+- **Why separate frontend and backend?** Independent deployment and scaling, a documented API that other clients could use, and the Claude key and database stay server-side.
+- **Why keep SM-2 independent?** So it can be unit-tested exhaustively, reasoned about in isolation, and swapped (for example for FSRS) without touching controllers or persistence.
+- **Why cache AI requests?** The same material is common (re-uploads, retries after a failed chunk, classmates), the model is the slowest and most expensive component, and validated output is safe to reuse.
+- **What if Claude is unavailable?** Only generation degrades, with a controlled 502; review, scheduling, stored quizzes and analytics keep working; successful chunks stay cached.
+
+### Engineering
+
+- **Testing strategy**: pure logic under unit tests with fixed clocks; services with Mockito; every endpoint under MockMvc against a real PostgreSQL container; AI paths with a scripted fake; frontend client and components with Vitest. 227 backend tests, all in CI.
+- **Error handling**: one JSON shape from a single advice class plus the security entry point; expected failures carry safe messages; everything else is logged with the request id and reported generically.
+- **Security**: BCrypt, JWT, per-user scoping, validation and upload checks, no secrets in git, CORS allow-list, security headers, rate limiting, non-root containers.
+- **Scalability**: stateless backend behind a load balancer, PostgreSQL aggregates instead of in-memory processing, indexed search, AI calls outside transactions, caching. Known single-instance assumptions (the rate limiter) are documented with the fix.
+- **Docker and AWS**: multi-stage images, compose for local parity, ECS Fargate task definitions with Secrets Manager injection, ALB path routing, RDS in private subnets, Flyway migrations at startup.
+
+## Development history
 
 1. ✅ Foundation: repo, Spring Boot, Next.js, PostgreSQL, Flyway, Docker
 2. ✅ Authentication (JWT)
@@ -416,4 +700,4 @@ cd frontend && npm run lint && npm test && npm run build
 9. ✅ Weak topics and analytics: deterministic weak-topic rule, dashboard summary, activity, retention and mastery series
 10. ✅ Frontend: auth, dashboard, decks, generation, study session, quizzes, analytics, settings
 11. ✅ Production hardening: per-user AI rate limiting, request correlation and access logging, security review, graceful shutdown, compression, production toggles
-12. AWS deployment
+12. ✅ AWS deployment: ECS Fargate task definitions, ECR push script, RDS and ALB guide, CI workflow
