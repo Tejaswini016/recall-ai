@@ -1,0 +1,50 @@
+{
+  "family": "recallai-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/recallai-ecs-execution",
+  "taskRoleArn": "arn:aws:iam::<ACCOUNT_ID>:role/recallai-ecs-task",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/recallai-backend:<TAG>",
+      "essential": true,
+      "portMappings": [{ "containerPort": 8080, "protocol": "tcp" }],
+      "environment": [
+        { "name": "DATABASE_URL", "value": "jdbc:postgresql://<RDS_ENDPOINT>:5432/recallai" },
+        { "name": "DATABASE_USERNAME", "value": "recallai" },
+        { "name": "CLAUDE_MODEL", "value": "claude-opus-5" },
+        { "name": "CLAUDE_EFFORT", "value": "medium" },
+        { "name": "CORS_ALLOWED_ORIGINS", "value": "https://<APP_DOMAIN>" },
+        { "name": "AI_RATE_LIMIT", "value": "20" },
+        { "name": "SWAGGER_ENABLED", "value": "false" },
+        { "name": "FORWARD_HEADERS_STRATEGY", "value": "framework" },
+        { "name": "LOG_LEVEL", "value": "INFO" },
+        { "name": "JAVA_TOOL_OPTIONS", "value": "-XX:MaxRAMPercentage=75" }
+      ],
+      "secrets": [
+        { "name": "DATABASE_PASSWORD", "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:recallai/db-password" },
+        { "name": "JWT_SECRET", "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:recallai/jwt-secret" },
+        { "name": "CLAUDE_API_KEY", "valueFrom": "arn:aws:secretsmanager:<REGION>:<ACCOUNT_ID>:secret:recallai/claude-api-key" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "stopTimeout": 60,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/recallai-backend",
+          "awslogs-region": "<REGION>",
+          "awslogs-stream-prefix": "backend"
+        }
+      }
+    }
+  ]
+}
