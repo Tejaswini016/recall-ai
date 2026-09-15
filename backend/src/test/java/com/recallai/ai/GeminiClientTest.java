@@ -19,7 +19,7 @@ class GeminiClientTest {
 
     private static AiProperties gemini(String key) {
         return new AiProperties("", "claude-opus-5", "medium", 4096, 12000, 30, 15, 1, 1, 20, false,
-                AiProvider.GEMINI, key, "gemini-3.6-flash");
+                AiProvider.GEMINI, key, "gemini-3.6-flash", "", "llama-3.3-70b-versatile", "https://api.groq.com/openai/v1");
     }
 
     @Test
@@ -84,11 +84,11 @@ class GeminiClientTest {
     void propertiesChooseModelKeyAndAvailabilityPerProvider() {
         AiProperties withGemini = gemini("g-key");
         AiProperties anthropic = new AiProperties("c-key", "claude-opus-5", "medium", 4096, 12000, 30, 15, 1, 1, 20, false,
-                AiProvider.ANTHROPIC, "", "gemini-3.6-flash");
+                AiProvider.ANTHROPIC, "", "gemini-3.6-flash", "", "llama-3.3-70b-versatile", "https://api.groq.com/openai/v1");
         AiProperties demo = new AiProperties("", "claude-opus-5", "medium", 4096, 12000, 30, 15, 1, 1, 20, true,
-                AiProvider.GEMINI, "", "gemini-3.6-flash");
+                AiProvider.GEMINI, "", "gemini-3.6-flash", "", "llama-3.3-70b-versatile", "https://api.groq.com/openai/v1");
 
-        assertThat(withGemini.effectiveModel()).isEqualTo("gemini-3.6-flash");
+        assertThat(withGemini.effectiveModel()).isEqualTo("gemini-3.6-flash", "", "llama-3.3-70b-versatile", "https://api.groq.com/openai/v1");
         assertThat(withGemini.effectiveProvider()).isEqualTo("gemini");
         assertThat(withGemini.generationAvailable()).isTrue();
         assertThat(gemini("").generationAvailable()).isFalse();

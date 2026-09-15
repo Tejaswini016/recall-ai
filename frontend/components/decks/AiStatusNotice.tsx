@@ -31,16 +31,17 @@ export function AiStatusNotice() {
       >
         <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
         <span>
-          AI generation is not configured on this server. Set <code>CLAUDE_API_KEY</code>, or <code>AI_DEMO_MODE=true</code> to
-          try the flow without a key.
+          AI generation is not configured on this server. Set <code>CLAUDE_API_KEY</code> (or a Gemini/Groq key with <code>AI_PROVIDER</code>), or
+          <code>AI_DEMO_MODE=true</code> to try the flow without a key.
         </span>
       </p>
     );
   }
-  if (status.data.provider === "gemini") {
+  if (status.data.provider === "gemini" || status.data.provider === "groq") {
+    const name = status.data.provider === "gemini" ? "Google Gemini" : "Groq";
     return (
       <p role="status" className="text-xs text-muted">
-        Generation runs on Google Gemini ({status.data.model}); output is validated the same way as Claude&apos;s.
+        Generation runs on {name} ({status.data.model}); output is validated the same way as Claude&apos;s.
       </p>
     );
   }

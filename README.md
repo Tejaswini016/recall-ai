@@ -274,15 +274,16 @@ Large documents are never sent to the model in one request. `TextChunker` splits
 
 ### Provider choice: Claude by default, Gemini for zero-cost development
 
-All model access goes through one interface (`ClaudeClient.complete(AiPrompt)`), and the prompt itself is provider-neutral: system text, user/assistant turns and a JSON Schema. Three implementations exist, selected by configuration:
+All model access goes through one interface (`ClaudeClient.complete(AiPrompt)`), and the prompt itself is provider-neutral: system text, user/assistant turns and a JSON Schema. Four implementations exist, selected by configuration:
 
 | `AI_PROVIDER` / `AI_DEMO_MODE` | Class | When to use |
 |---|---|---|
 | `anthropic` (default) | `AnthropicClaudeClient`, official Anthropic Java SDK, `CLAUDE_API_KEY` | Production: strongest structured-output support and grounding; pay-as-you-go |
 | `gemini` | `GeminiClient`, official Google Gen AI Java SDK, `GEMINI_API_KEY` | Development at zero cost: Gemini Flash models have a free developer tier from Google AI Studio (rate limited; free-tier prompts may be used to improve Google's models, so paste only notes you are comfortable sharing) |
+| `groq` | `GroqClient`, Spring `RestClient` against Groq's OpenAI-compatible API, `GROQ_API_KEY` | Development at zero cost: Groq's free developer tier needs no card (rate limited per model). `GROQ_BASE_URL` points the same client at any OpenAI-compatible server, such as a local Ollama, for a fully offline option |
 | `AI_DEMO_MODE=true` | `DemoClaudeClient`, no network | UI demos without any key; heuristic output tagged `demo`, not AI |
 
-Switching providers changes nothing in chunking, validation, retries, caching or persistence. The Gemini client maps the same prompt onto `generateContent` with a JSON response constraint (`responseJsonSchema`, with the one keyword Gemini's dialect rejects stripped), maps the roles (`assistant` becomes `model`), and translates HTTP 401/403 to a non-retryable configuration error, 429 to a retryable one, and blocked finish reasons to a refusal. The model id is part of every cache key, so Claude, Gemini and demo output are never mixed. `GET /api/ai/status` reports which provider is active and the generate dialogs show it.
+Switching providers changes nothing in chunking, validation, retries, caching or persistence. The Groq client sends the same system text and turns as OpenAI-style chat messages with `response_format: json_object` and relies on the validator for the schema. The Gemini client maps the same prompt onto `generateContent` with a JSON response constraint (`responseJsonSchema`, with the one keyword Gemini's dialect rejects stripped), maps the roles (`assistant` becomes `model`), and translates HTTP 401/403 to a non-retryable configuration error, 429 to a retryable one, and blocked finish reasons to a refusal. The model id is part of every cache key, so Claude, Gemini and demo output are never mixed. `GET /api/ai/status` reports which provider is active and the generate dialogs show it.
 
 ### Demo mode (no API key)
 
@@ -495,9 +496,10 @@ Backend (`backend/.env.example`):
 |---|---|
 | `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | JDBC connection |
 | `JWT_SECRET`, `JWT_EXPIRATION_MINUTES` | Token signing key (base64, ≥256 bit) and lifetime |
-| `AI_PROVIDER` | `anthropic` (default) or `gemini` |
+| `AI_PROVIDER` | `anthropic` (default), `gemini` or `groq` |
 | `CLAUDE_API_KEY`, `CLAUDE_MODEL` | Anthropic credentials and model id (default `claude-opus-5`) |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Google AI Studio key and Gemini model id (default `gemini-3.6-flash`), used when `AI_PROVIDER=gemini` |
+| `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_BASE_URL` | Groq key and model (default `llama-3.3-70b-versatile`); the base URL defaults to Groq and accepts any OpenAI-compatible endpoint |
 | `CLAUDE_EFFORT`, `CLAUDE_MAX_TOKENS` | Reasoning effort (`low`/`medium`/`high`) and output token ceiling |
 | `AI_MAX_INPUT_CHARS`, `AI_MAX_CARDS`, `AI_MAX_QUIZ_QUESTIONS` | Size limits per generation request |
 | `AI_VALIDATION_RETRIES`, `AI_TRANSPORT_RETRIES` | Corrective re-asks after invalid output; extra attempts after transient failures |

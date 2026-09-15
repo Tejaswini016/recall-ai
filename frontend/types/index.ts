@@ -246,7 +246,7 @@ export interface TopicPerformance {
 export interface AiStatus {
   available: boolean;
   demoMode: boolean;
-  provider: "anthropic" | "gemini" | "demo";
+  provider: "anthropic" | "gemini" | "groq" | "demo";
   model: string;
 }
 

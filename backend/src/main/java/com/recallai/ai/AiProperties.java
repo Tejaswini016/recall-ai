@@ -24,6 +24,9 @@ import org.springframework.validation.annotation.Validated;
  * @param provider             which hosted provider generates when demo mode is off
  * @param geminiApiKey         Google Gemini API key, used only when the provider is GEMINI
  * @param geminiModel          Gemini model id, part of the cache key when the provider is GEMINI
+ * @param groqApiKey           Groq API key, used only when the provider is GROQ
+ * @param groqModel            Groq model id, part of the cache key when the provider is GROQ
+ * @param groqBaseUrl          OpenAI-compatible base URL (Groq by default; a local Ollama works too)
  */
 @Validated
 @ConfigurationProperties(prefix = "recallai.ai")
@@ -41,7 +44,10 @@ public record AiProperties(
         boolean demoMode,
         @NotNull AiProvider provider,
         String geminiApiKey,
-        @NotBlank String geminiModel) {
+        @NotBlank String geminiModel,
+        String groqApiKey,
+        @NotBlank String groqModel,
+        @NotBlank String groqBaseUrl) {
 
     public static final String DEMO_MODEL = "demo";
 
@@ -53,12 +59,20 @@ public record AiProperties(
         return geminiApiKey != null && !geminiApiKey.isBlank();
     }
 
+    public boolean hasGroqApiKey() {
+        return groqApiKey != null && !groqApiKey.isBlank();
+    }
+
     /** Cache keys use this so demo, Gemini and Claude output never mix. */
     public String effectiveModel() {
         if (demoMode) {
             return DEMO_MODEL;
         }
-        return provider == AiProvider.GEMINI ? geminiModel : model;
+        return switch (provider) {
+            case GEMINI -> geminiModel;
+            case GROQ -> groqModel;
+            case ANTHROPIC -> model;
+        };
     }
 
     /** Human-readable provider for status responses and logs. */
@@ -70,6 +84,10 @@ public record AiProperties(
         if (demoMode) {
             return true;
         }
-        return provider == AiProvider.GEMINI ? hasGeminiApiKey() : hasApiKey();
+        return switch (provider) {
+            case GEMINI -> hasGeminiApiKey();
+            case GROQ -> hasGroqApiKey();
+            case ANTHROPIC -> hasApiKey();
+        };
     }
 }

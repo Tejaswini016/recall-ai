@@ -28,6 +28,9 @@ recallai:
     provider: anthropic
     gemini-api-key: ""
     gemini-model: gemini-3.6-flash
+    groq-api-key: ""
+    groq-model: llama-3.3-70b-versatile
+    groq-base-url: https://api.groq.com/openai/v1
 
 logging:
   level:

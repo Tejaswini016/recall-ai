@@ -8,5 +8,7 @@ public enum AiProvider {
     /** Anthropic Claude through the official Java SDK (default, used in production). */
     ANTHROPIC,
     /** Google Gemini through the official Java SDK; its Flash models have a free developer tier. */
-    GEMINI
+    GEMINI,
+    /** Groq's OpenAI-compatible API (free developer tier); GROQ_BASE_URL also fits any OpenAI-compatible server such as Ollama. */
+    GROQ
 }
