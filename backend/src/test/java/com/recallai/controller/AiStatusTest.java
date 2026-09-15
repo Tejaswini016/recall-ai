@@ -19,8 +19,10 @@ class AiStatusTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.available").value(false))
                 .andExpect(jsonPath("$.demoMode").value(false))
+                .andExpect(jsonPath("$.provider").value("anthropic"))
                 .andExpect(jsonPath("$.model").value("test-model"))
-                .andExpect(jsonPath("$.apiKey").doesNotExist());
+                .andExpect(jsonPath("$.apiKey").doesNotExist())
+                .andExpect(jsonPath("$.geminiApiKey").doesNotExist());
 
         mockMvc.perform(get("/api/ai/status")).andExpect(status().isUnauthorized());
     }

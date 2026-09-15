@@ -49,7 +49,7 @@ public class AiController {
     @Operation(summary = "Whether generation is available, and whether it is real Claude output or demo mode")
     public AiStatusResponse status() {
         return new AiStatusResponse(aiProperties.generationAvailable(), aiProperties.demoMode(),
-                aiProperties.effectiveModel());
+                aiProperties.effectiveProvider(), aiProperties.effectiveModel());
     }
 
     @PostMapping("/flashcards")

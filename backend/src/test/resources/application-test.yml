@@ -25,6 +25,9 @@ recallai:
     transport-retries: 0
     rate-limit-per-hour: 20
     demo-mode: false
+    provider: anthropic
+    gemini-api-key: ""
+    gemini-model: gemini-2.5-flash
 
 logging:
   level:

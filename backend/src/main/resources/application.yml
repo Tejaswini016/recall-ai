@@ -101,3 +101,7 @@ recallai:
     rate-limit-per-hour: ${AI_RATE_LIMIT:20}
     # true = build cards/quizzes from the notes with local heuristics instead of Claude (no key, not AI).
     demo-mode: ${AI_DEMO_MODE:false}
+    # anthropic (default) or gemini. Gemini Flash models have a free developer tier.
+    provider: ${AI_PROVIDER:anthropic}
+    gemini-api-key: ${GEMINI_API_KEY:}
+    gemini-model: ${GEMINI_MODEL:gemini-2.5-flash}

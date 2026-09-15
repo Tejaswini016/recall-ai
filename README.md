@@ -272,6 +272,18 @@ Large documents are never sent to the model in one request. `TextChunker` splits
 - Every call logs latency, input and output tokens, cache hit or miss and retry count. Study content and keys are never logged.
 - Per-user rate limiting of the generation endpoints (`AI_RATE_LIMIT`); see [Rate limiting](#rate-limiting).
 
+### Provider choice: Claude by default, Gemini for zero-cost development
+
+All model access goes through one interface (`ClaudeClient.complete(AiPrompt)`), and the prompt itself is provider-neutral: system text, user/assistant turns and a JSON Schema. Three implementations exist, selected by configuration:
+
+| `AI_PROVIDER` / `AI_DEMO_MODE` | Class | When to use |
+|---|---|---|
+| `anthropic` (default) | `AnthropicClaudeClient`, official Anthropic Java SDK, `CLAUDE_API_KEY` | Production: strongest structured-output support and grounding; pay-as-you-go |
+| `gemini` | `GeminiClient`, official Google Gen AI Java SDK, `GEMINI_API_KEY` | Development at zero cost: Gemini Flash models have a free developer tier from Google AI Studio (rate limited; free-tier prompts may be used to improve Google's models, so paste only notes you are comfortable sharing) |
+| `AI_DEMO_MODE=true` | `DemoClaudeClient`, no network | UI demos without any key; heuristic output tagged `demo`, not AI |
+
+Switching providers changes nothing in chunking, validation, retries, caching or persistence. The Gemini client maps the same prompt onto `generateContent` with a JSON response constraint (`responseJsonSchema`, with the one keyword Gemini's dialect rejects stripped), maps the roles (`assistant` becomes `model`), and translates HTTP 401/403 to a non-retryable configuration error, 429 to a retryable one, and blocked finish reasons to a refusal. The model id is part of every cache key, so Claude, Gemini and demo output are never mixed. `GET /api/ai/status` reports which provider is active and the generate dialogs show it.
+
 ### Demo mode (no API key)
 
 Set `AI_DEMO_MODE=true` and the backend swaps `AnthropicClaudeClient` for `DemoClaudeClient`, which builds cards and quiz questions from the pasted notes with simple sentence heuristics: no network, no key, no cost. It exists so the whole flow (upload, chunking, validation, caching, persistence, rate limiting, the study session) can be demonstrated on a laptop or in an interview without spending anything. It is **not AI**: every card is tagged `demo`, its explanation says so, the model recorded in the cache is `demo` so demo output never mixes with real output, the generate dialogs show an amber "Demo mode is on" notice (driven by `GET /api/ai/status`), and the README says so here. Turn it off and set `CLAUDE_API_KEY` for real generation.
@@ -483,7 +495,9 @@ Backend (`backend/.env.example`):
 |---|---|
 | `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` | JDBC connection |
 | `JWT_SECRET`, `JWT_EXPIRATION_MINUTES` | Token signing key (base64, ≥256 bit) and lifetime |
+| `AI_PROVIDER` | `anthropic` (default) or `gemini` |
 | `CLAUDE_API_KEY`, `CLAUDE_MODEL` | Anthropic credentials and model id (default `claude-opus-5`) |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | Google AI Studio key and Gemini model id (default `gemini-2.5-flash`), used when `AI_PROVIDER=gemini` |
 | `CLAUDE_EFFORT`, `CLAUDE_MAX_TOKENS` | Reasoning effort (`low`/`medium`/`high`) and output token ceiling |
 | `AI_MAX_INPUT_CHARS`, `AI_MAX_CARDS`, `AI_MAX_QUIZ_QUESTIONS` | Size limits per generation request |
 | `AI_VALIDATION_RETRIES`, `AI_TRANSPORT_RETRIES` | Corrective re-asks after invalid output; extra attempts after transient failures |
@@ -648,7 +662,7 @@ Screens to capture are listed in `docs/screenshots/README.md` together with a on
 
 ### AI
 
-- **Why Claude?** Strong structured-output support (JSON-schema constrained responses), long context, an official Java SDK with typed errors and built-in retries, and reliable adherence to grounding instructions ("use only the supplied material").
+- **Why Claude?** Strong structured-output support (JSON-schema constrained responses), long context, an official Java SDK with typed errors and built-in retries, and reliable adherence to grounding instructions ("use only the supplied material"). The provider sits behind one interface, so Gemini is available as a free-tier alternative for development with no change to the pipeline.
 - **How are prompts designed?** As versioned templates in `ai/`: a rule-heavy system prompt, a user message with the material fenced in `<study_material>` tags, and a JSON Schema for the output. The version string is part of the cache key.
 - **How is structured output guaranteed?** Twice: the API is asked for schema-constrained JSON, and `AiResponseValidator` re-checks types, presence, lengths, ranges and duplicates. Only validated records leave the `ai` package.
 - **What if Claude returns invalid JSON?** The validator throws with a list of problems; `AiRetryService` re-asks once with the rejected reply and the problems quoted back; if still invalid the client gets `502 AI_INVALID_RESPONSE` and nothing is stored or cached.

@@ -37,5 +37,12 @@ export function AiStatusNotice() {
       </p>
     );
   }
+  if (status.data.provider === "gemini") {
+    return (
+      <p role="status" className="text-xs text-muted">
+        Generation runs on Google Gemini ({status.data.model}); output is validated the same way as Claude&apos;s.
+      </p>
+    );
+  }
   return null;
 }
