@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileText, Upload } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Field";
@@ -188,6 +188,11 @@ export function GenerateQuizModal({
   const [title, setTitle] = useState("");
   const [count, setCount] = useState(10);
   const [useText, setUseText] = useState(!hasCards);
+  // The modal stays mounted while closed, so re-derive the default each time it opens
+  // (cards may have been generated since the page first rendered).
+  useEffect(() => {
+    if (open) setUseText(!hasCards);
+  }, [open, hasCards]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
