@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/Badge";
 import { StatTile } from "@/components/ui/StatTile";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/States";
 import { ActivityChart } from "@/components/analytics/Charts";
+import { WeakTopicsPanel } from "@/components/topics/WeakTopicsPanel";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { api } from "@/lib/endpoints";
 import { formatDateTime, greeting, pluralize } from "@/lib/format";
@@ -19,7 +20,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const summary = useApiQuery(() => api.analytics.summary());
   const queue = useApiQuery(() => api.reviews.due({ limit: 5 }));
-  const weak = useApiQuery(() => api.analytics.weakTopics());
+  const insights = useApiQuery(() => api.analytics.topicInsights());
   const history = useApiQuery(() => api.reviews.history({ size: 6 }));
   const activity = useApiQuery(() => api.analytics.activity(14));
 
@@ -130,28 +131,15 @@ export default function DashboardPage() {
         </Card>
 
         <Card>
-          <CardTitle className="mb-4">Weak topics</CardTitle>
-          {weak.loading ? (
-            <Skeleton className="h-24" />
-          ) : weak.error ? (
-            <ErrorState message={weak.error} onRetry={weak.refetch} />
-          ) : weak.data && weak.data.length > 0 ? (
-            <ul className="space-y-3">
-              {weak.data.slice(0, 5).map((topic) => (
-                <li key={topic.topic} className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{topic.topic}</p>
-                    <p className="text-xs text-muted">
-                      {pluralize(topic.reviews, "review")} · {topic.successRatePercent}% success
-                    </p>
-                  </div>
-                  <Badge tone="danger">{topic.recentAverageQuality.toFixed(1)} / 5</Badge>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted">No weak topics detected. Keep reviewing and this updates automatically.</p>
-          )}
+          <CardTitle className="mb-4">Your weak topics</CardTitle>
+          <WeakTopicsPanel
+            insights={insights.data}
+            loading={insights.loading}
+            error={insights.error}
+            onRetry={insights.refetch}
+            compact
+            limit={5}
+          />
           <Link href="/analytics" className="mt-4 inline-block text-sm font-medium text-primary hover:underline">
             See all topics
           </Link>

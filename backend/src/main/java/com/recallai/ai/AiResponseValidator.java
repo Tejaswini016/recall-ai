@@ -92,13 +92,14 @@ public class AiResponseValidator {
                     problems);
             List<String> options = quizOptions(node, where, problems);
             Integer correct = correctAnswer(node, where, problems);
+            String topic = optionalText(node, "topic", where, QuizPromptBuilder.MAX_TOPIC_CHARS, problems);
             if (question == null || explanation == null || options == null || correct == null) {
                 continue;
             }
             if (!seenQuestions.add(question.toLowerCase(Locale.ROOT))) {
                 continue;
             }
-            result.add(new GeneratedQuizQuestion(question, options, correct, explanation));
+            result.add(new GeneratedQuizQuestion(question, options, correct, explanation, topic));
         }
         failIfAny(problems);
         if (result.isEmpty()) {

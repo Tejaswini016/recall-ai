@@ -48,11 +48,16 @@ public class QuizQuestion {
     @Column(nullable = false, columnDefinition = "text")
     private String explanation;
 
+    /** Sub-topic the question tests; null for quizzes generated before topics were collected. */
+    @Column(length = 150)
+    private String topic;
+
     protected QuizQuestion() {
         // JPA
     }
 
-    QuizQuestion(Quiz quiz, String question, List<String> options, int correctAnswer, String explanation) {
+    QuizQuestion(Quiz quiz, String question, List<String> options, int correctAnswer, String explanation,
+                 String topic) {
         if (options.size() != OPTION_COUNT) {
             throw new IllegalArgumentException("A quiz question needs exactly " + OPTION_COUNT + " options");
         }
@@ -67,6 +72,7 @@ public class QuizQuestion {
         this.optionD = options.get(3);
         this.correctAnswer = (short) correctAnswer;
         this.explanation = explanation;
+        this.topic = topic;
     }
 
     public Long getId() {
@@ -91,5 +97,9 @@ public class QuizQuestion {
 
     public String getExplanation() {
         return explanation;
+    }
+
+    public String getTopic() {
+        return topic;
     }
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { CheckCircle2, RotateCcw, Sparkles } from "lucide-react";
 import { RatingBar } from "@/components/study/RatingBar";
 import { useToast } from "@/components/providers/ToastProvider";
@@ -26,10 +26,26 @@ interface Graded {
 }
 
 export default function StudyPage() {
+  return (
+    <Suspense fallback={<LoadingState label="Preparing your review…" />}>
+      <StudySession />
+    </Suspense>
+  );
+}
+
+/**
+ * Two modes share one screen: the due queue (`/study/all` or `/study/{deckId}`) and topic practice
+ * (`?topic=`), which pulls every card on the topic, hardest first. Grading is identical in both.
+ */
+function StudySession() {
   const params = useParams<{ deckId: string }>();
   const deckId = params.deckId === "all" ? undefined : Number(params.deckId);
+  const topic = useSearchParams().get("topic")?.trim() || null;
   const toast = useToast();
-  const queue = useApiQuery(() => api.reviews.due({ deckId, limit: SESSION_LIMIT }), [deckId]);
+  const queue = useApiQuery(
+    () => (topic ? api.reviews.practice({ topic, limit: SESSION_LIMIT }) : api.reviews.due({ deckId, limit: SESSION_LIMIT })),
+    [deckId, topic],
+  );
 
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -86,7 +102,7 @@ export default function StudyPage() {
     queue.refetch();
   };
 
-  const backHref = deckId ? `/decks/${deckId}` : "/dashboard";
+  const backHref = topic ? "/dashboard" : deckId ? `/decks/${deckId}` : "/dashboard";
 
   if (queue.loading && !queue.data) return <LoadingState label="Preparing your review…" />;
   if (queue.error) return <ErrorState message={queue.error} onRetry={queue.refetch} />;
@@ -95,8 +111,12 @@ export default function StudyPage() {
     return (
       <EmptyState
         icon={CheckCircle2}
-        title="Nothing due"
-        description="Every card here is scheduled for a later day. Come back when the queue fills up."
+        title={topic ? "No cards on this topic" : "Nothing due"}
+        description={
+          topic
+            ? `No card carries the topic "${topic}" yet. Generate or add cards with that topic to practise it.`
+            : "Every card here is scheduled for a later day. Come back when the queue fills up."
+        }
         action={
           <Link href={backHref}>
             <Button variant="secondary">Back</Button>
@@ -143,6 +163,7 @@ export default function StudyPage() {
           Exit
         </Link>
         <span>
+          {topic ? `Practice: ${topic} · ` : ""}
           {index + 1} of {total}
           {remaining !== null ? ` · ${pluralize(remaining, "card")} remaining today` : ""}
         </span>

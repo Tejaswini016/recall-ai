@@ -5,6 +5,7 @@ import com.recallai.dto.AiStatusResponse;
 import com.recallai.dto.GenerateCardsResponse;
 import com.recallai.dto.GenerateFlashcardsRequest;
 import com.recallai.dto.GenerateQuizRequest;
+import com.recallai.dto.GenerateTopicQuizRequest;
 import com.recallai.dto.QuizResponse;
 import com.recallai.security.AuthenticatedUser;
 import com.recallai.service.FlashcardGenerationService;
@@ -78,5 +79,13 @@ public class AiController {
     public QuizResponse quiz(@AuthenticationPrincipal AuthenticatedUser user,
                              @Valid @RequestBody GenerateQuizRequest request) {
         return quizGenerationService.generate(user.id(), request);
+    }
+
+    @PostMapping("/quiz/topic")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Generate a practice quiz on one topic from the user's own cards that carry it")
+    public QuizResponse topicQuiz(@AuthenticationPrincipal AuthenticatedUser user,
+                                  @Valid @RequestBody GenerateTopicQuizRequest request) {
+        return quizGenerationService.generateForTopic(user.id(), request);
     }
 }

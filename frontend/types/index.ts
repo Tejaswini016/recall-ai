@@ -147,6 +147,7 @@ export interface QuizQuestion {
   id: number;
   question: string;
   options: string[];
+  topic: string | null;
 }
 
 export interface QuizSummary {
@@ -177,6 +178,7 @@ export interface QuestionResult {
   correctAnswer: number;
   correct: boolean;
   explanation: string;
+  topic: string | null;
 }
 
 export interface QuizAttempt {
@@ -241,6 +243,24 @@ export interface TopicPerformance {
   successRatePercent: number;
   lastReviewedAt: string;
   weak: boolean;
+}
+
+export type TopicCategory = "CRITICAL" | "WEAK" | "GOOD" | "STRONG" | "UNRATED";
+
+/** One topic across flashcard reviews and quiz answers, as computed by /api/analytics/topic-insights. */
+export interface TopicInsight {
+  topic: string;
+  category: TopicCategory;
+  accuracyPercent: number;
+  attempts: number;
+  mistakes: number;
+  cardCount: number;
+  cardReviews: number;
+  cardSuccesses: number;
+  quizAnswers: number;
+  quizCorrect: number;
+  lastStudiedAt: string | null;
+  recommendedAction: string;
 }
 
 export interface AiStatus {

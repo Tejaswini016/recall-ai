@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { StatTile } from "@/components/ui/StatTile";
 import { ErrorState, Skeleton } from "@/components/ui/States";
 import { ActivityChart, MasteryChart, RetentionChart, TopicChart } from "@/components/analytics/Charts";
+import { WeakTopicsPanel } from "@/components/topics/WeakTopicsPanel";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { api } from "@/lib/endpoints";
 import { cn } from "@/lib/cn";
@@ -21,6 +22,7 @@ export default function AnalyticsPage() {
   const activity = useApiQuery(() => api.analytics.activity(days), [days]);
   const mastery = useApiQuery(() => api.analytics.mastery(days), [days]);
   const topics = useApiQuery(() => api.analytics.topics());
+  const insights = useApiQuery(() => api.analytics.topicInsights());
 
   const rangePicker = (
     <div className="flex rounded-lg border border-border bg-card p-0.5" role="group" aria-label="Time range">
@@ -118,7 +120,18 @@ export default function AnalyticsPage() {
       </div>
 
       <Card>
-        <CardTitle className="mb-4">All topics</CardTitle>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+          <CardTitle>All topics</CardTitle>
+          <p className="text-xs text-muted">
+            Accuracy combines flashcard reviews (rated 3 or higher) and quiz answers. Critical below 50%, weak below 70%,
+            good below 85%, strong from 85%.
+          </p>
+        </div>
+        <WeakTopicsPanel insights={insights.data} loading={insights.loading} error={insights.error} onRetry={insights.refetch} />
+      </Card>
+
+      <Card>
+        <CardTitle className="mb-4">Flashcard recall by topic</CardTitle>
         {topics.data && topics.data.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

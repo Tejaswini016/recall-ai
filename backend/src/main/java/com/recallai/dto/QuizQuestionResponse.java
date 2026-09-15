@@ -4,9 +4,10 @@ import com.recallai.entity.QuizQuestion;
 import java.util.List;
 
 /** A question as shown while taking the quiz: the correct answer and explanation are withheld. */
-public record QuizQuestionResponse(Long id, String question, List<String> options) {
+public record QuizQuestionResponse(Long id, String question, List<String> options, String topic) {
 
     public static QuizQuestionResponse from(QuizQuestion question) {
-        return new QuizQuestionResponse(question.getId(), question.getQuestion(), question.getOptions());
+        return new QuizQuestionResponse(question.getId(), question.getQuestion(), question.getOptions(),
+                question.getTopic());
     }
 }

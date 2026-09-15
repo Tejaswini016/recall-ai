@@ -160,6 +160,7 @@ public class QuizService {
                 answer.getSelectedAnswer(),
                 answer.getQuestion().getCorrectAnswer(),
                 answer.isCorrect(),
-                answer.getQuestion().getExplanation());
+                answer.getQuestion().getExplanation(),
+                answer.getQuestion().getTopic());
     }
 }

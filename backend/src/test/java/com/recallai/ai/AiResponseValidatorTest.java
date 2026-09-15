@@ -152,6 +152,20 @@ class AiResponseValidatorTest {
             assertThat(questions).hasSize(1);
             assertThat(questions.get(0).options()).hasSize(4);
             assertThat(questions.get(0).correctAnswer()).isEqualTo(1);
+            assertThat(questions.get(0).topic()).isNull();
+        }
+
+        @Test
+        void topicIsOptionalButMustBeAShortString() {
+            String withTopic = VALID_QUIZ.replace("\"correctAnswer\": 1", "\"correctAnswer\": 1, \"topic\": \" Cell energy \"");
+            assertThat(validator.validateQuiz(withTopic, 10).get(0).topic()).isEqualTo("Cell energy");
+
+            String numeric = VALID_QUIZ.replace("\"correctAnswer\": 1", "\"correctAnswer\": 1, \"topic\": 7");
+            assertThatThrownBy(() -> validator.validateQuiz(numeric, 10)).hasMessageContaining("topic must be a string");
+
+            String tooLong = VALID_QUIZ.replace("\"correctAnswer\": 1",
+                    "\"correctAnswer\": 1, \"topic\": \"" + "t".repeat(151) + "\"");
+            assertThatThrownBy(() -> validator.validateQuiz(tooLong, 10)).hasMessageContaining("exceeds 150");
         }
 
         @Test

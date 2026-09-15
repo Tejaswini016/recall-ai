@@ -14,6 +14,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,6 +48,16 @@ public class ReviewController {
                                    @RequestParam(defaultValue = "" + DEFAULT_QUEUE_LIMIT)
                                    @Min(1) @Max(MAX_QUEUE_LIMIT) int limit) {
         return reviewService.dueQueue(user.id(), deckId, limit);
+    }
+
+    @GetMapping("/practice")
+    @Operation(summary = "Cards on one topic for targeted practice, hardest first, regardless of due date",
+            description = "Cards without a topic belong to their deck's name. Grade them with POST /{cardId} as usual.")
+    public ReviewQueueResponse practice(@AuthenticationPrincipal AuthenticatedUser user,
+                                        @RequestParam @NotBlank @Size(max = 150) String topic,
+                                        @RequestParam(defaultValue = "" + DEFAULT_QUEUE_LIMIT)
+                                        @Min(1) @Max(MAX_QUEUE_LIMIT) int limit) {
+        return reviewService.practiceQueue(user.id(), topic, limit);
     }
 
     @PostMapping("/{cardId}")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { FileText, Upload } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input, Textarea } from "@/components/ui/Field";
@@ -189,10 +189,13 @@ export function GenerateQuizModal({
   const [count, setCount] = useState(10);
   const [useText, setUseText] = useState(!hasCards);
   // The modal stays mounted while closed, so re-derive the default each time it opens
-  // (cards may have been generated since the page first rendered).
-  useEffect(() => {
+  // (cards may have been generated since the page first rendered). Adjusting state during
+  // render is React's recommended way to reset derived state on a prop change.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) setUseText(!hasCards);
-  }, [open, hasCards]);
+  }
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

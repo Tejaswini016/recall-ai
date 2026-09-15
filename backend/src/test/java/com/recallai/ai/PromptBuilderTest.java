@@ -35,7 +35,9 @@ class PromptBuilderTest {
         assertThat(question.get("options").get("maxItems").asInt()).isEqualTo(4);
         assertThat(question.get("correctAnswer").get("minimum").asInt()).isZero();
         assertThat(question.get("correctAnswer").get("maximum").asInt()).isEqualTo(3);
-        assertThat(prompt.system()).contains("exactly four options", "Exactly one option is correct");
+        assertThat(question.get("topic").get("maxLength").asInt()).isEqualTo(150);
+        assertThat(prompt.promptVersion()).isEqualTo("v2");
+        assertThat(prompt.system()).contains("exactly four options", "Exactly one option is correct", "\"topic\"");
     }
 
     @Test

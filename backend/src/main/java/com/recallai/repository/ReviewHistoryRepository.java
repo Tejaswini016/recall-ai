@@ -108,4 +108,23 @@ public interface ReviewHistoryRepository extends JpaRepository<ReviewHistory, Lo
             """, nativeQuery = true)
     List<TopicStats> topicStats(@Param("userId") Long userId, @Param("deckId") Long deckId,
                                 @Param("recentWindow") int recentWindow);
+
+    /**
+     * Review counts per topic for the combined topic insight. Unlike {@link #topicStats}, cards
+     * without a topic count under their deck's name, matching how quiz answers are grouped.
+     */
+    @Query(value = """
+            SELECT min(coalesce(c.topic, d.name)) AS topic,
+                   count(DISTINCT c.id) AS cardCount,
+                   count(*) AS reviews,
+                   count(*) FILTER (WHERE r.quality_score >= 3) AS successful,
+                   max(r.reviewed_at) AS lastReviewedAt
+            FROM review_history r
+            JOIN cards c ON c.id = r.card_id
+            JOIN decks d ON d.id = c.deck_id
+            WHERE r.user_id = :userId
+              AND (CAST(:deckId AS BIGINT) IS NULL OR d.id = CAST(:deckId AS BIGINT))
+            GROUP BY lower(btrim(coalesce(c.topic, d.name)))
+            """, nativeQuery = true)
+    List<TopicReviewStats> topicReviewStats(@Param("userId") Long userId, @Param("deckId") Long deckId);
 }

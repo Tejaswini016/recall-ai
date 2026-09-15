@@ -54,6 +54,28 @@ public interface CardRepository extends JpaRepository<Card, Long> {
     @Query("SELECT count(c) FROM Card c WHERE c.deck.user.id = :userId AND c.dueDate <= :today")
     long countDue(@Param("userId") Long userId, @Param("today") LocalDate today);
 
+    /**
+     * Every card on a topic regardless of due date, for targeted practice. Cards without a topic
+     * belong to their deck's name, the same rule the topic insight uses. Hardest first: lowest ease,
+     * then soonest due.
+     */
+    @Query(value = """
+            SELECT c.* FROM cards c
+            JOIN decks d ON d.id = c.deck_id
+            WHERE d.user_id = :userId
+              AND lower(btrim(coalesce(c.topic, d.name))) = lower(btrim(CAST(:topic AS TEXT)))
+            ORDER BY c.ease_factor ASC, c.due_date ASC, c.id ASC
+            """, nativeQuery = true)
+    List<Card> findByTopic(@Param("userId") Long userId, @Param("topic") String topic, Pageable pageable);
+
+    @Query(value = """
+            SELECT count(*) FROM cards c
+            JOIN decks d ON d.id = c.deck_id
+            WHERE d.user_id = :userId
+              AND lower(btrim(coalesce(c.topic, d.name))) = lower(btrim(CAST(:topic AS TEXT)))
+            """, nativeQuery = true)
+    long countByTopic(@Param("userId") Long userId, @Param("topic") String topic);
+
     @Query("""
             SELECT count(c) FROM Card c
             WHERE c.deck.user.id = :userId AND c.deck.id = :deckId AND c.dueDate <= :today

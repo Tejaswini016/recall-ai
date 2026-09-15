@@ -3,9 +3,11 @@ package com.recallai.controller;
 import com.recallai.dto.ActivityPoint;
 import com.recallai.dto.AnalyticsSummaryResponse;
 import com.recallai.dto.MasteryPoint;
+import com.recallai.dto.TopicInsightResponse;
 import com.recallai.dto.TopicPerformanceResponse;
 import com.recallai.security.AuthenticatedUser;
 import com.recallai.service.AnalyticsService;
+import com.recallai.service.TopicInsightService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,9 +29,11 @@ public class AnalyticsController {
     static final int MAX_DAYS = 365;
 
     private final AnalyticsService analyticsService;
+    private final TopicInsightService topicInsightService;
 
-    public AnalyticsController(AnalyticsService analyticsService) {
+    public AnalyticsController(AnalyticsService analyticsService, TopicInsightService topicInsightService) {
         this.analyticsService = analyticsService;
+        this.topicInsightService = topicInsightService;
     }
 
     @GetMapping("/summary")
@@ -57,6 +61,16 @@ public class AnalyticsController {
     public List<TopicPerformanceResponse> topics(@AuthenticationPrincipal AuthenticatedUser user,
                                                  @RequestParam(required = false) Long deckId) {
         return analyticsService.topics(user.id(), deckId);
+    }
+
+    @GetMapping("/topic-insights")
+    @Operation(summary = "Every studied topic with combined flashcard and quiz accuracy, category and next action",
+            description = "Most urgent first: critical, weak, good, strong, then topics with too few attempts to judge.")
+    public List<TopicInsightResponse> topicInsights(@AuthenticationPrincipal AuthenticatedUser user,
+                                                    @RequestParam(required = false) Long deckId,
+                                                    @RequestParam(defaultValue = "false") boolean weakOnly) {
+        return weakOnly ? topicInsightService.weakTopics(user.id(), deckId)
+                : topicInsightService.insights(user.id(), deckId);
     }
 
     @GetMapping("/weak-topics")

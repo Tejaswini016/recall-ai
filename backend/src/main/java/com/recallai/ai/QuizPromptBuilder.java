@@ -11,12 +11,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class QuizPromptBuilder {
 
-    public static final String VERSION = "v1";
+    public static final String VERSION = "v2";
 
     static final int OPTION_COUNT = 4;
     static final int MAX_QUESTION_CHARS = 2000;
     static final int MAX_OPTION_CHARS = 500;
     static final int MAX_EXPLANATION_CHARS = 5000;
+    static final int MAX_TOPIC_CHARS = 150;
 
     private static final String SYSTEM = """
             You write multiple-choice quiz questions for RecallAI, a study app.
@@ -33,6 +34,9 @@ public class QuizPromptBuilder {
             - "correctAnswer" is the zero-based index of the correct option (0, 1, 2 or 3).
             - "explanation": one to three sentences saying why the correct option is right and, \
             briefly, why the others are not. A student who answered wrongly reads this.
+            - "topic": a short label (two to five words) naming the sub-topic the question tests. \
+            Reuse the same label for questions on the same sub-topic so results can be grouped. When \
+            the material is a list of flashcards that already name a topic, reuse that name exactly.
             - No duplicate or near-duplicate questions.
             - Write in the same language as the study material.
 
@@ -69,7 +73,9 @@ public class QuizPromptBuilder {
         options.putObject("items").put("type", "string").put("maxLength", MAX_OPTION_CHARS);
         props.putObject("correctAnswer").put("type", "integer").put("minimum", 0).put("maximum", OPTION_COUNT - 1);
         props.putObject("explanation").put("type", "string").put("maxLength", MAX_EXPLANATION_CHARS);
-        question.putArray("required").add("question").add("options").add("correctAnswer").add("explanation");
+        props.putObject("topic").put("type", "string").put("maxLength", MAX_TOPIC_CHARS);
+        question.putArray("required").add("question").add("options").add("correctAnswer").add("explanation")
+                .add("topic");
 
         ObjectNode root = objectMapper.createObjectNode();
         root.put("type", "object");

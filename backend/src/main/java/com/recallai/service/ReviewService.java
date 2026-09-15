@@ -75,6 +75,19 @@ public class ReviewService {
                 cards.stream().map(card -> DueCardResponse.from(card, today)).toList());
     }
 
+    /**
+     * A practice session on one topic: every card carrying the topic, hardest first, whether or not
+     * it is due. Grading goes through {@link #review} as usual, so SM-2 reschedules practised cards.
+     */
+    @Transactional(readOnly = true)
+    public ReviewQueueResponse practiceQueue(Long userId, String topic, int limit) {
+        LocalDate today = LocalDate.now(clock);
+        List<Card> cards = cardRepository.findByTopic(userId, topic, PageRequest.of(0, limit));
+        long total = cardRepository.countByTopic(userId, topic);
+        return new ReviewQueueResponse(today, total,
+                cards.stream().map(card -> DueCardResponse.from(card, today)).toList());
+    }
+
     @Transactional
     public ReviewResponse review(Long userId, Long cardId, int quality) {
         Card card = cardRepository.findOwnedForUpdate(cardId, userId)

@@ -50,7 +50,12 @@ public class Quiz {
     }
 
     public void addQuestion(String question, List<String> options, int correctAnswer, String explanation) {
-        questions.add(new QuizQuestion(this, question, options, correctAnswer, explanation));
+        addQuestion(question, options, correctAnswer, explanation, null);
+    }
+
+    public void addQuestion(String question, List<String> options, int correctAnswer, String explanation,
+                            String topic) {
+        questions.add(new QuizQuestion(this, question, options, correctAnswer, explanation, topic));
     }
 
     public Long getId() {

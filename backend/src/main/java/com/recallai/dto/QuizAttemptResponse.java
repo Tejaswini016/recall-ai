@@ -24,6 +24,7 @@ public record QuizAttemptResponse(
             Integer selectedAnswer,
             int correctAnswer,
             boolean correct,
-            String explanation) {
+            String explanation,
+            String topic) {
     }
 }
