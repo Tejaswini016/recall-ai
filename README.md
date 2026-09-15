@@ -636,7 +636,7 @@ Then open `https://app.example.com`, register, create a deck, generate cards fro
 
 ## Screenshots
 
-Screens to capture are listed in `docs/screenshots/README.md` together with a one-line Playwright command. Once the PNGs are in place they render here:
+Captured from the composed stack running on the Groq provider (`AI_PROVIDER=groq`, `openai/gpt-oss-120b`): the cards, the quiz and the explanations shown here were generated from pasted notes at zero cost. `docs/screenshots/README.md` lists the screens and the Playwright command used.
 
 | Dashboard | Deck and card generation |
 |---|---|

@@ -1,5 +1,7 @@
 # Screenshots
 
+Current set: captured 15 Sept 2026 from the compose stack with `AI_PROVIDER=groq` (model `openai/gpt-oss-120b`), light theme, 1440x900.
+
 Capture these after `docker compose up --build` (or the local setup) with an account that has a
 few decks and reviews, at 1440x900, and save them here with the exact names below so the main
 README picks them up.
