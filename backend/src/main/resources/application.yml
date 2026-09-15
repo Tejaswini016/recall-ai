@@ -111,6 +111,6 @@ recallai:
     gemini-api-key: ${GEMINI_API_KEY:}
     gemini-model: ${GEMINI_MODEL:gemini-3.6-flash}
     groq-api-key: ${GROQ_API_KEY:}
-    groq-model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+    groq-model: ${GROQ_MODEL:openai/gpt-oss-120b}
     # Any OpenAI-compatible server works here, e.g. http://localhost:11434/v1 for Ollama (key can be any non-empty value).
     groq-base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}

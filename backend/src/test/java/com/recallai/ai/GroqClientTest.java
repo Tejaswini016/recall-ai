@@ -32,7 +32,7 @@ class GroqClientTest {
 
     private static AiProperties groq(String key) {
         return new AiProperties("", "claude-opus-5", "medium", 4096, 12000, 30, 15, 1, 1, 20, false,
-                AiProvider.GROQ, "", "gemini-3.6-flash", key, "llama-3.3-70b-versatile", BASE);
+                AiProvider.GROQ, "", "gemini-3.6-flash", key, "openai/gpt-oss-120b", BASE);
     }
 
     private record Harness(GroqClient client, MockRestServiceServer server) {
@@ -50,7 +50,7 @@ class GroqClientTest {
         h.server().expect(requestTo(BASE + "/chat/completions"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "Bearer gsk_test"))
-                .andExpect(jsonPath("$.model").value("llama-3.3-70b-versatile"))
+                .andExpect(jsonPath("$.model").value("openai/gpt-oss-120b"))
                 .andExpect(jsonPath("$.response_format.type").value("json_object"))
                 .andExpect(jsonPath("$.messages[0].role").value("system"))
                 .andExpect(jsonPath("$.messages[1].role").value("user"))

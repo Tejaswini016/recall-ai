@@ -499,7 +499,7 @@ Backend (`backend/.env.example`):
 | `AI_PROVIDER` | `anthropic` (default), `gemini` or `groq` |
 | `CLAUDE_API_KEY`, `CLAUDE_MODEL` | Anthropic credentials and model id (default `claude-opus-5`) |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Google AI Studio key and Gemini model id (default `gemini-3.6-flash`), used when `AI_PROVIDER=gemini` |
-| `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_BASE_URL` | Groq key and model (default `llama-3.3-70b-versatile`); the base URL defaults to Groq and accepts any OpenAI-compatible endpoint |
+| `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_BASE_URL` | Groq key and model (default `openai/gpt-oss-120b`); the base URL defaults to Groq and accepts any OpenAI-compatible endpoint |
 | `CLAUDE_EFFORT`, `CLAUDE_MAX_TOKENS` | Reasoning effort (`low`/`medium`/`high`) and output token ceiling |
 | `AI_MAX_INPUT_CHARS`, `AI_MAX_CARDS`, `AI_MAX_QUIZ_QUESTIONS` | Size limits per generation request |
 | `AI_VALIDATION_RETRIES`, `AI_TRANSPORT_RETRIES` | Corrective re-asks after invalid output; extra attempts after transient failures |

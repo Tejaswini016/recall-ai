@@ -130,6 +130,6 @@ class AiRetryServiceTest {
 
     static AiProperties properties(int validationRetries, int transportRetries) {
         return new AiProperties("key", "test-model", "medium", 4096, 12000, 30, 15,
-                validationRetries, transportRetries, 20, false, AiProvider.ANTHROPIC, "", "gemini-3.6-flash", "", "llama-3.3-70b-versatile", "https://api.groq.com/openai/v1");
+                validationRetries, transportRetries, 20, false, AiProvider.ANTHROPIC, "", "gemini-3.6-flash", "", "openai/gpt-oss-120b", "https://api.groq.com/openai/v1");
     }
 }
