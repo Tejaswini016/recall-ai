@@ -27,7 +27,7 @@ recallai:
     demo-mode: false
     provider: anthropic
     gemini-api-key: ""
-    gemini-model: gemini-2.5-flash
+    gemini-model: gemini-3.6-flash
 
 logging:
   level:

@@ -45,6 +45,7 @@ public class GeminiClient implements ClaudeClient {
     private static final int HTTP_FORBIDDEN = 403;
     private static final int HTTP_TOO_MANY_REQUESTS = 429;
     private static final int HTTP_BAD_REQUEST = 400;
+    private static final int HTTP_NOT_FOUND = 404;
     /** JSON Schema keywords Gemini's schema dialect does not accept; harmless to drop because the validator re-checks. */
     private static final Set<String> UNSUPPORTED_SCHEMA_KEYS = Set.of("additionalProperties");
     private static final Set<String> BLOCKED_FINISH_REASONS = Set.of("SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "RECITATION", "SPII");
@@ -115,6 +116,11 @@ public class GeminiClient implements ClaudeClient {
         }
         if (code == HTTP_TOO_MANY_REQUESTS) {
             return new AiUnavailableException("The AI service is busy; please try again shortly", true, e);
+        }
+        if (code == HTTP_NOT_FOUND) {
+            // Google retires model ids; the API message names the replacement, so surface it to the operator log.
+            log.error("Gemini model is not available: {}", e.message());
+            return new AiUnavailableException("The configured AI model is not available; set GEMINI_MODEL to a current model", false, e);
         }
         log.error("Gemini API error {} ({})", code, e.status());
         return new AiUnavailableException("The AI service returned an error", false, e);

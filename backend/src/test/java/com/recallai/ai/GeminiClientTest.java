@@ -19,7 +19,7 @@ class GeminiClientTest {
 
     private static AiProperties gemini(String key) {
         return new AiProperties("", "claude-opus-5", "medium", 4096, 12000, 30, 15, 1, 1, 20, false,
-                AiProvider.GEMINI, key, "gemini-2.5-flash");
+                AiProvider.GEMINI, key, "gemini-3.6-flash");
     }
 
     @Test
@@ -73,17 +73,22 @@ class GeminiClientTest {
         assertThat(rateLimited.isRetryable()).isTrue();
         assertThat(rateLimited.getMessage()).contains("busy");
         assertThat(badRequest.isRetryable()).isFalse();
+
+        AiUnavailableException retiredModel = GeminiClient.translateClientError(
+                new ClientException(404, "NOT_FOUND", "This model is no longer available"));
+        assertThat(retiredModel.isRetryable()).isFalse();
+        assertThat(retiredModel.getMessage()).contains("GEMINI_MODEL");
     }
 
     @Test
     void propertiesChooseModelKeyAndAvailabilityPerProvider() {
         AiProperties withGemini = gemini("g-key");
         AiProperties anthropic = new AiProperties("c-key", "claude-opus-5", "medium", 4096, 12000, 30, 15, 1, 1, 20, false,
-                AiProvider.ANTHROPIC, "", "gemini-2.5-flash");
+                AiProvider.ANTHROPIC, "", "gemini-3.6-flash");
         AiProperties demo = new AiProperties("", "claude-opus-5", "medium", 4096, 12000, 30, 15, 1, 1, 20, true,
-                AiProvider.GEMINI, "", "gemini-2.5-flash");
+                AiProvider.GEMINI, "", "gemini-3.6-flash");
 
-        assertThat(withGemini.effectiveModel()).isEqualTo("gemini-2.5-flash");
+        assertThat(withGemini.effectiveModel()).isEqualTo("gemini-3.6-flash");
         assertThat(withGemini.effectiveProvider()).isEqualTo("gemini");
         assertThat(withGemini.generationAvailable()).isTrue();
         assertThat(gemini("").generationAvailable()).isFalse();

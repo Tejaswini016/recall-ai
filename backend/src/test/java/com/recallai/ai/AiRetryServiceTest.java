@@ -130,6 +130,6 @@ class AiRetryServiceTest {
 
     static AiProperties properties(int validationRetries, int transportRetries) {
         return new AiProperties("key", "test-model", "medium", 4096, 12000, 30, 15,
-                validationRetries, transportRetries, 20, false, AiProvider.ANTHROPIC, "", "gemini-2.5-flash");
+                validationRetries, transportRetries, 20, false, AiProvider.ANTHROPIC, "", "gemini-3.6-flash");
     }
 }

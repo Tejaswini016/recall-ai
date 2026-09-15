@@ -497,7 +497,7 @@ Backend (`backend/.env.example`):
 | `JWT_SECRET`, `JWT_EXPIRATION_MINUTES` | Token signing key (base64, ≥256 bit) and lifetime |
 | `AI_PROVIDER` | `anthropic` (default) or `gemini` |
 | `CLAUDE_API_KEY`, `CLAUDE_MODEL` | Anthropic credentials and model id (default `claude-opus-5`) |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | Google AI Studio key and Gemini model id (default `gemini-2.5-flash`), used when `AI_PROVIDER=gemini` |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | Google AI Studio key and Gemini model id (default `gemini-3.6-flash`), used when `AI_PROVIDER=gemini` |
 | `CLAUDE_EFFORT`, `CLAUDE_MAX_TOKENS` | Reasoning effort (`low`/`medium`/`high`) and output token ceiling |
 | `AI_MAX_INPUT_CHARS`, `AI_MAX_CARDS`, `AI_MAX_QUIZ_QUESTIONS` | Size limits per generation request |
 | `AI_VALIDATION_RETRIES`, `AI_TRANSPORT_RETRIES` | Corrective re-asks after invalid output; extra attempts after transient failures |

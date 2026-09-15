@@ -15,7 +15,7 @@ class RateLimitServiceTest {
     private static final Instant START = Instant.parse("2026-09-09T10:00:00Z");
 
     private static AiProperties limit(int perHour) {
-        return new AiProperties("key", "model", "medium", 4096, 12000, 30, 15, 1, 1, perHour, false, AiProvider.ANTHROPIC, "", "gemini-2.5-flash");
+        return new AiProperties("key", "model", "medium", 4096, 12000, 30, 15, 1, 1, perHour, false, AiProvider.ANTHROPIC, "", "gemini-3.6-flash");
     }
 
     /** A clock the test can advance. */

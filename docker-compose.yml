@@ -36,7 +36,7 @@ services:
       AI_DEMO_MODE: ${AI_DEMO_MODE:-false}
       AI_PROVIDER: ${AI_PROVIDER:-anthropic}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
     ports:
       - "8080:8080"

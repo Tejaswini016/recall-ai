@@ -104,4 +104,4 @@ recallai:
     # anthropic (default) or gemini. Gemini Flash models have a free developer tier.
     provider: ${AI_PROVIDER:anthropic}
     gemini-api-key: ${GEMINI_API_KEY:}
-    gemini-model: ${GEMINI_MODEL:gemini-2.5-flash}
+    gemini-model: ${GEMINI_MODEL:gemini-3.6-flash}
