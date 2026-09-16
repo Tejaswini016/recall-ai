@@ -7,5 +7,7 @@ public enum AiOperation {
     /** One corrective flashcard built from a mistake. */
     MISTAKE_CARD,
     /** Summary and per-topic advice for a study plan. */
-    STUDY_PLAN
+    STUDY_PLAN,
+    /** Mixed-type exam questions. */
+    MOCK_EXAM
 }

@@ -2,6 +2,7 @@ import { apiFetch, query } from "@/lib/api";
 import type {
   ActivityPoint,
   AiStatus,
+  CreateMockExamRequest,
   CreateStudyPlanRequest,
   AnalyticsSummary,
   AnswerSubmission,
@@ -13,6 +14,11 @@ import type {
   DifficultyDistribution,
   GenerateCardsResponse,
   MasteryPoint,
+  MockExam,
+  MockExamAnswer,
+  MockExamResult,
+  MockExamStats,
+  MockExamSummary,
   Mistake,
   MistakeFlashcard,
   MistakeSource,
@@ -136,6 +142,16 @@ export const api = {
     updateStatus: (id: number, status: StudyPlanStatus) =>
       apiFetch<StudyPlanSummary>(`/api/study-plans/${id}`, { method: "PATCH", body: { status } }),
     remove: (id: number) => apiFetch<void>(`/api/study-plans/${id}`, { method: "DELETE" }),
+  },
+  mockExams: {
+    create: (body: CreateMockExamRequest) => apiFetch<MockExam>("/api/mock-exams", { method: "POST", body }),
+    list: (limit = 20) => apiFetch<MockExamSummary[]>(`/api/mock-exams${query({ limit })}`),
+    stats: () => apiFetch<MockExamStats>("/api/mock-exams/stats"),
+    get: (id: number) => apiFetch<MockExam>(`/api/mock-exams/${id}`),
+    submit: (id: number, answers: MockExamAnswer[]) =>
+      apiFetch<MockExamResult>(`/api/mock-exams/${id}/submit`, { method: "POST", body: { answers } }),
+    results: (id: number) => apiFetch<MockExamResult>(`/api/mock-exams/${id}/results`),
+    remove: (id: number) => apiFetch<void>(`/api/mock-exams/${id}`, { method: "DELETE" }),
   },
   search: (q: string) => apiFetch<SearchResponse>(`/api/search${query({ q })}`),
   tags: () => apiFetch<string[]>("/api/tags"),

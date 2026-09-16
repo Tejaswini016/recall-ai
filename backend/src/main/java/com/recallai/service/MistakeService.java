@@ -13,6 +13,8 @@ import com.recallai.entity.Deck;
 import com.recallai.entity.Mistake;
 import com.recallai.entity.MistakeSource;
 import com.recallai.entity.MistakeStatus;
+import com.recallai.entity.MockExam;
+import com.recallai.entity.MockExamQuestion;
 import com.recallai.entity.QuizAttempt;
 import com.recallai.entity.QuizAttemptAnswer;
 import com.recallai.entity.QuizQuestion;
@@ -90,6 +92,40 @@ public class MistakeService {
         if (recorded > 0) {
             log.info("User {} recorded {} mistakes from quiz attempt {}", userId, recorded, attempt.getId());
         }
+    }
+
+    /** Every wrong or skipped exam answer becomes a mistake with source MOCK_EXAM. */
+    @Transactional
+    public void recordExamMistakes(Long userId, MockExam exam) {
+        Instant now = clock.instant();
+        int recorded = 0;
+        for (MockExamQuestion question : exam.getQuestions()) {
+            if (Boolean.TRUE.equals(question.getCorrect())) {
+                continue;
+            }
+            String given = question.givenAnswerText();
+            Optional<Mistake> existing = mistakeRepository.findByUserIdAndMockExamQuestionId(userId, question.getId());
+            if (existing.isPresent()) {
+                existing.get().missedAgain(given, now);
+            } else {
+                mistakeRepository.save(Mistake.fromExam(userRepository.getReferenceById(userId), exam.getDeck(),
+                        question.getId(), question.getQuestion(), given, question.correctAnswerText(),
+                        question.getExplanation(), question.getTopic() != null ? question.getTopic() : exam.getTopic(), now));
+            }
+            recorded++;
+        }
+        if (recorded > 0) {
+            log.info("User {} recorded {} mistakes from mock exam {}", userId, recorded, exam.getId());
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, Mistake> forExamQuestions(Long userId, Collection<Long> questionIds) {
+        if (questionIds.isEmpty()) {
+            return Map.of();
+        }
+        return mistakeRepository.findByUserIdAndMockExamQuestionIdIn(userId, questionIds).stream()
+                .collect(Collectors.toMap(Mistake::getMockExamQuestionId, Function.identity()));
     }
 
     /** Mistakes keyed by quiz question id, for decorating attempt results. */

@@ -24,6 +24,8 @@ public class AiGenerationService {
     };
     private static final TypeReference<List<StudyPlanAdvice>> ADVICE_LIST = new TypeReference<>() {
     };
+    private static final TypeReference<List<GeneratedExamQuestion>> EXAM_LIST = new TypeReference<>() {
+    };
 
     private final PromptService promptService;
     private final AiRetryService retryService;
@@ -122,6 +124,27 @@ public class AiGenerationService {
         cacheService.store(key, items);
         log.info("Generated study plan advice for {} topics", topics.size());
         return new AiGenerationResult<>(items, false, attempt.correctiveRetries());
+    }
+
+    public AiGenerationResult<GeneratedExamQuestion> generateMockExam(String material, int requestedQuestions,
+                                                                   com.recallai.entity.ExamDifficulty difficulty,
+                                                                   java.util.Set<com.recallai.entity.ExamQuestionType> types) {
+        int count = clamp(requestedQuestions, properties.maxQuizQuestions() * 2);
+        checkMaterial(material);
+        String typeKey = types.stream().map(Enum::name).sorted().collect(java.util.stream.Collectors.joining(","));
+        AiCacheService.CacheKey key = AiCacheService.CacheKey.of(material,
+                "count=" + count + ";difficulty=" + difficulty + ";types=" + typeKey, AiOperation.MOCK_EXAM,
+                properties.effectiveModel(), promptService.promptVersion(AiOperation.MOCK_EXAM));
+        Optional<List<GeneratedExamQuestion>> cached = cacheService.lookup(key, EXAM_LIST);
+        if (cached.isPresent()) {
+            return new AiGenerationResult<>(cached.get(), true, 0);
+        }
+        AiRetryService.Attempt<List<GeneratedExamQuestion>> attempt = retryService.execute(
+                promptService.mockExam(material, count, difficulty, types),
+                text -> validator.validateMockExam(text, count, types));
+        cacheService.store(key, attempt.value());
+        log.info("Generated {} exam questions", attempt.value().size());
+        return new AiGenerationResult<>(attempt.value(), false, attempt.correctiveRetries());
     }
 
     private void checkMaterial(String material) {

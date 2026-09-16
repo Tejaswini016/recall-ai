@@ -20,6 +20,10 @@ public interface MistakeRepository extends JpaRepository<Mistake, Long> {
 
     List<Mistake> findByUserIdAndQuizQuestionIdIn(Long userId, Collection<Long> quizQuestionIds);
 
+    Optional<Mistake> findByUserIdAndMockExamQuestionId(Long userId, Long mockExamQuestionId);
+
+    List<Mistake> findByUserIdAndMockExamQuestionIdIn(Long userId, Collection<Long> mockExamQuestionIds);
+
     long countByUserIdAndStatus(Long userId, MistakeStatus status);
 
     long countByUserId(Long userId);

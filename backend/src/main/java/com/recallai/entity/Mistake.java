@@ -37,6 +37,9 @@ public class Mistake {
     @Column(name = "quiz_question_id")
     private Long quizQuestionId;
 
+    @Column(name = "mock_exam_question_id")
+    private Long mockExamQuestionId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private MistakeSource source;
@@ -94,6 +97,15 @@ public class Mistake {
         this.lastMissedAt = now;
     }
 
+    /** A mistake made in a mock exam; the question text is copied so it outlives the exam. */
+    public static Mistake fromExam(User user, Deck deck, Long mockExamQuestionId, String question, String givenAnswer,
+                                   String correctAnswer, String explanation, String topic, Instant now) {
+        Mistake mistake = new Mistake(user, deck, MistakeSource.MOCK_EXAM, null, question, givenAnswer, correctAnswer,
+                explanation, topic, now);
+        mistake.mockExamQuestionId = mockExamQuestionId;
+        return mistake;
+    }
+
     /** The same question was missed again: count it and reopen a dismissed mistake. */
     public void missedAgain(String givenAnswer, Instant now) {
         this.occurrences++;
@@ -136,6 +148,10 @@ public class Mistake {
 
     public Long getQuizQuestionId() {
         return quizQuestionId;
+    }
+
+    public Long getMockExamQuestionId() {
+        return mockExamQuestionId;
     }
 
     public MistakeSource getSource() {

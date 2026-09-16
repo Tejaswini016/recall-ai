@@ -403,6 +403,117 @@ export interface TodayPlan {
   doneMinutes: number;
 }
 
+export type ExamQuestionType = "MCQ" | "TRUE_FALSE" | "SHORT_ANSWER";
+export type ExamDifficulty = "EASY" | "MEDIUM" | "HARD" | "EXPERT";
+export type MockExamStatus = "IN_PROGRESS" | "SUBMITTED";
+
+export interface CreateMockExamRequest {
+  topic?: string;
+  deckId?: number;
+  title?: string;
+  difficulty: ExamDifficulty;
+  questionCount: number;
+  durationMinutes: number;
+  questionTypes: ExamQuestionType[];
+}
+
+export interface MockExamQuestion {
+  id: number;
+  order: number;
+  type: ExamQuestionType;
+  question: string;
+  options: string[];
+  topic: string | null;
+}
+
+export interface MockExam {
+  id: number;
+  title: string;
+  topic: string | null;
+  deckId: number | null;
+  difficulty: ExamDifficulty;
+  durationMinutes: number;
+  status: MockExamStatus;
+  startedAt: string;
+  expiresAt: string;
+  remainingSeconds: number;
+  questionCount: number;
+  questions: MockExamQuestion[];
+}
+
+export interface MockExamAnswer {
+  questionId: number;
+  selectedOption?: number | null;
+  answerText?: string | null;
+}
+
+export interface MockExamQuestionResult {
+  id: number;
+  order: number;
+  type: ExamQuestionType;
+  question: string;
+  options: string[];
+  topic: string | null;
+  selectedOption: number | null;
+  answerText: string | null;
+  correctOption: number | null;
+  correctAnswer: string;
+  acceptableAnswers: string[];
+  correct: boolean;
+  skipped: boolean;
+  explanation: string;
+  mistakeId: number | null;
+  mistakeStatus: MistakeStatus | null;
+  mistakeCardId: number | null;
+}
+
+export interface MockExamResult {
+  id: number;
+  title: string;
+  topic: string | null;
+  difficulty: ExamDifficulty;
+  score: number;
+  totalQuestions: number;
+  percent: number;
+  correctCount: number;
+  incorrectCount: number;
+  skippedCount: number;
+  durationMinutes: number;
+  timeTakenSeconds: number | null;
+  timedOut: boolean;
+  startedAt: string;
+  submittedAt: string;
+  topics: { topic: string; correct: number; total: number; percent: number; strong: boolean }[];
+  strongTopics: string[];
+  weakTopics: string[];
+  questions: MockExamQuestionResult[];
+}
+
+export interface MockExamSummary {
+  id: number;
+  title: string;
+  topic: string | null;
+  difficulty: ExamDifficulty;
+  questionCount: number;
+  durationMinutes: number;
+  status: MockExamStatus;
+  score: number;
+  percent: number | null;
+  timeTakenSeconds: number | null;
+  timedOut: boolean;
+  startedAt: string;
+  submittedAt: string | null;
+}
+
+export interface MockExamStats {
+  exams: number;
+  submitted: number;
+  averagePercent: number | null;
+  bestPercent: number | null;
+  latestPercent: number | null;
+  recent: MockExamSummary[];
+}
+
 export interface AiStatus {
   available: boolean;
   demoMode: boolean;

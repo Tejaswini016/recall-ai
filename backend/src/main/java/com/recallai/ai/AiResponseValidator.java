@@ -3,6 +3,7 @@ package com.recallai.ai;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.recallai.entity.ExamQuestionType;
 import com.recallai.service.TagNormalizer;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -112,6 +113,126 @@ public class AiResponseValidator {
         }
         failIfAny(problems);
         return new StudyPlanAdvice(summary, List.copyOf(advice));
+    }
+
+    /** Mixed-type exam questions; each type has its own shape. Disallowed types are a problem, not a drop. */
+    public List<GeneratedExamQuestion> validateMockExam(String rawText, int maxQuestions, Set<ExamQuestionType> allowed) {
+        JsonNode root = parseObject(rawText);
+        JsonNode questions = requireArray(root, "questions");
+        if (questions.isEmpty()) {
+            throw invalid("\"questions\" is empty; at least one question is required");
+        }
+        int limit = Math.min(questions.size(), maxQuestions);
+        List<String> problems = new ArrayList<>();
+        List<GeneratedExamQuestion> result = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < limit; i++) {
+            JsonNode node = questions.get(i);
+            String where = "questions[" + i + "]";
+            if (!node.isObject()) {
+                problems.add(where + " is not an object");
+                continue;
+            }
+            ExamQuestionType type = examType(node, where, allowed, problems);
+            String question = requiredText(node, "question", where, MockExamPromptBuilder.MAX_QUESTION_CHARS, problems);
+            String explanation = requiredText(node, "explanation", where, MockExamPromptBuilder.MAX_EXPLANATION_CHARS, problems);
+            String topic = optionalText(node, "topic", where, MockExamPromptBuilder.MAX_TOPIC_CHARS, problems);
+            if (type == null || question == null || explanation == null) {
+                continue;
+            }
+            GeneratedExamQuestion parsed = switch (type) {
+                case MCQ -> {
+                    List<String> options = quizOptions(node, where, problems);
+                    Integer correct = correctAnswerIndex(node, "correctOption", where, 4, problems);
+                    yield options == null || correct == null ? null
+                            : new GeneratedExamQuestion(type, question, options, correct, null, List.of(), explanation, topic);
+                }
+                case TRUE_FALSE -> {
+                    Integer correct = correctAnswerIndex(node, "correctOption", where, 2, problems);
+                    yield correct == null ? null
+                            : new GeneratedExamQuestion(type, question, List.of("True", "False"), correct, null, List.of(),
+                                    explanation, topic);
+                }
+                case SHORT_ANSWER -> {
+                    String answer = requiredText(node, "correctAnswer", where, MockExamPromptBuilder.MAX_SHORT_ANSWER_CHARS, problems);
+                    List<String> acceptable = acceptableAnswers(node, where, problems);
+                    yield answer == null ? null
+                            : new GeneratedExamQuestion(type, question, List.of(), null, answer, acceptable, explanation, topic);
+                }
+            };
+            if (parsed == null || !seen.add(question.toLowerCase(Locale.ROOT))) {
+                continue;
+            }
+            result.add(parsed);
+        }
+        failIfAny(problems);
+        if (result.isEmpty()) {
+            throw invalid("no usable questions remained after validation");
+        }
+        return List.copyOf(result);
+    }
+
+    private static ExamQuestionType examType(JsonNode node, String where, Set<ExamQuestionType> allowed,
+                                             List<String> problems) {
+        JsonNode value = node.get("type");
+        if (value == null || !value.isTextual()) {
+            problems.add(where + ".type must be one of MCQ, TRUE_FALSE, SHORT_ANSWER");
+            return null;
+        }
+        try {
+            ExamQuestionType type = ExamQuestionType.valueOf(value.asText().strip().toUpperCase(Locale.ROOT));
+            if (!allowed.contains(type)) {
+                problems.add(where + ".type " + type + " was not requested; allowed: " + allowed);
+                return null;
+            }
+            return type;
+        } catch (IllegalArgumentException e) {
+            problems.add(where + ".type \"" + value.asText() + "\" is not one of MCQ, TRUE_FALSE, SHORT_ANSWER");
+            return null;
+        }
+    }
+
+    private static Integer correctAnswerIndex(JsonNode node, String field, String where, int optionCount,
+                                              List<String> problems) {
+        JsonNode value = node.get(field);
+        if (value == null || !value.isIntegralNumber()) {
+            problems.add(where + "." + field + " must be an integer between 0 and " + (optionCount - 1));
+            return null;
+        }
+        int index = value.asInt();
+        if (index < 0 || index >= optionCount) {
+            problems.add(where + "." + field + " is " + index + "; it must be between 0 and " + (optionCount - 1));
+            return null;
+        }
+        return index;
+    }
+
+    private static List<String> acceptableAnswers(JsonNode node, String where, List<String> problems) {
+        JsonNode value = node.get("acceptableAnswers");
+        if (value == null || value.isNull()) {
+            return List.of();
+        }
+        if (!value.isArray()) {
+            problems.add(where + ".acceptableAnswers must be an array of strings");
+            return List.of();
+        }
+        List<String> answers = new ArrayList<>();
+        for (JsonNode item : value) {
+            if (!item.isTextual()) {
+                problems.add(where + ".acceptableAnswers must contain only strings");
+                return List.of();
+            }
+            String text = item.asText().strip();
+            if (text.length() > MockExamPromptBuilder.MAX_SHORT_ANSWER_CHARS) {
+                problems.add(where + ".acceptableAnswers contains an answer longer than "
+                        + MockExamPromptBuilder.MAX_SHORT_ANSWER_CHARS + " characters");
+                return List.of();
+            }
+            if (!text.isEmpty() && answers.size() < MockExamPromptBuilder.MAX_ACCEPTABLE_ANSWERS) {
+                answers.add(text);
+            }
+        }
+        return List.copyOf(answers);
     }
 
     /** One card object; records every problem and returns null when the card is unusable. */

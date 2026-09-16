@@ -16,20 +16,29 @@ public class PromptService {
     private final QuizPromptBuilder quizPromptBuilder;
     private final MistakePromptBuilder mistakePromptBuilder;
     private final StudyPlanPromptBuilder studyPlanPromptBuilder;
+    private final MockExamPromptBuilder mockExamPromptBuilder;
 
     public PromptService(FlashcardPromptBuilder flashcardPromptBuilder, QuizPromptBuilder quizPromptBuilder) {
         this(flashcardPromptBuilder, quizPromptBuilder,
                 new MistakePromptBuilder(new com.fasterxml.jackson.databind.ObjectMapper()),
-                new StudyPlanPromptBuilder(new com.fasterxml.jackson.databind.ObjectMapper()));
+                new StudyPlanPromptBuilder(new com.fasterxml.jackson.databind.ObjectMapper()),
+                new MockExamPromptBuilder(new com.fasterxml.jackson.databind.ObjectMapper()));
     }
 
     @org.springframework.beans.factory.annotation.Autowired
     public PromptService(FlashcardPromptBuilder flashcardPromptBuilder, QuizPromptBuilder quizPromptBuilder,
-                         MistakePromptBuilder mistakePromptBuilder, StudyPlanPromptBuilder studyPlanPromptBuilder) {
+                         MistakePromptBuilder mistakePromptBuilder, StudyPlanPromptBuilder studyPlanPromptBuilder,
+                         MockExamPromptBuilder mockExamPromptBuilder) {
         this.flashcardPromptBuilder = flashcardPromptBuilder;
         this.quizPromptBuilder = quizPromptBuilder;
         this.mistakePromptBuilder = mistakePromptBuilder;
         this.studyPlanPromptBuilder = studyPlanPromptBuilder;
+        this.mockExamPromptBuilder = mockExamPromptBuilder;
+    }
+
+    public AiPrompt mockExam(String material, int count, com.recallai.entity.ExamDifficulty difficulty,
+                             java.util.Set<com.recallai.entity.ExamQuestionType> types) {
+        return mockExamPromptBuilder.build(material, count, difficulty, types);
     }
 
     public AiPrompt studyPlan(StudyPlanContext context) {
@@ -54,6 +63,7 @@ public class PromptService {
             case QUIZ -> QuizPromptBuilder.VERSION;
             case MISTAKE_CARD -> MistakePromptBuilder.VERSION;
             case STUDY_PLAN -> StudyPlanPromptBuilder.VERSION;
+            case MOCK_EXAM -> MockExamPromptBuilder.VERSION;
         };
     }
 
