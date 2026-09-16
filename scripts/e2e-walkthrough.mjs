@@ -3,11 +3,11 @@
 // (Microsoft Edge via playwright-core) for every flow, and refreshes the README screenshots.
 // Usage: npm i playwright-core && node scripts/e2e-walkthrough.mjs   (stack on :3000 and :8080)
 import { chromium } from "playwright-core";
-import { writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const API = "http://localhost:8080";
 const APP = "http://localhost:3000";
-const OUT = new URL("../docs/screenshots", import.meta.url).pathname.replace(/^/([A-Za-z]:)/, "$1");
+const OUT = fileURLToPath(new URL("../docs/screenshots/", import.meta.url)).replace(/[\/]$/, "");
 const stamp = Date.now();
 const email = `adaptive-${stamp}@example.com`;
 const report = [];
