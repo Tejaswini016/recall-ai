@@ -514,6 +514,33 @@ export interface MockExamStats {
   recent: MockExamSummary[];
 }
 
+export interface ReadinessComponent {
+  key: string;
+  label: string;
+  score: number;
+  weight: number;
+  detail: string;
+  available: boolean;
+}
+
+export interface Readiness {
+  score: number;
+  label: string;
+  estimate: boolean;
+  confidence: "LOW" | "MEDIUM" | "HIGH";
+  evidenceAttempts: number;
+  components: ReadinessComponent[];
+  recommendation: string;
+  computedAt: string;
+}
+
+export interface UpcomingReviews {
+  today: string;
+  overdue: number;
+  dueToday: number;
+  days: { date: string; cards: number }[];
+}
+
 export interface AiStatus {
   available: boolean;
   demoMode: boolean;

@@ -4,10 +4,12 @@ import com.recallai.dto.ActivityPoint;
 import com.recallai.dto.AnalyticsSummaryResponse;
 import com.recallai.dto.DifficultyDistributionResponse;
 import com.recallai.dto.MasteryPoint;
+import com.recallai.dto.ReadinessResponse;
 import com.recallai.dto.TopicInsightResponse;
 import com.recallai.dto.TopicPerformanceResponse;
 import com.recallai.security.AuthenticatedUser;
 import com.recallai.service.AnalyticsService;
+import com.recallai.service.ReadinessService;
 import com.recallai.service.TopicInsightService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -31,10 +33,20 @@ public class AnalyticsController {
 
     private final AnalyticsService analyticsService;
     private final TopicInsightService topicInsightService;
+    private final ReadinessService readinessService;
 
-    public AnalyticsController(AnalyticsService analyticsService, TopicInsightService topicInsightService) {
+    public AnalyticsController(AnalyticsService analyticsService, TopicInsightService topicInsightService,
+                               ReadinessService readinessService) {
         this.analyticsService = analyticsService;
         this.topicInsightService = topicInsightService;
+        this.readinessService = readinessService;
+    }
+
+    @GetMapping("/readiness")
+    @Operation(summary = "Estimated exam readiness (0-100) from accuracy, retention, topic coverage, consistency and mock exams",
+            description = "A heuristic over measured numbers, not a prediction; every component and its weight is returned so it can be explained.")
+    public ReadinessResponse readiness(@AuthenticationPrincipal AuthenticatedUser user) {
+        return readinessService.readiness(user.id());
     }
 
     @GetMapping("/summary")

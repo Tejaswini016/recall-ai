@@ -29,6 +29,7 @@ import type {
   QuizAttempt,
   QuizAttemptSummary,
   QuizSummary,
+  Readiness,
   ReviewHistoryItem,
   ReviewQueue,
   ReviewResult,
@@ -42,6 +43,7 @@ import type {
   TodayPlan,
   TopicInsight,
   TopicPerformance,
+  UpcomingReviews,
   User,
 } from "@/types";
 
@@ -76,6 +78,7 @@ export const api = {
   reviews: {
     due: (params: { deckId?: number; limit?: number } = {}) =>
       apiFetch<ReviewQueue>(`/api/reviews/due${query(params)}`),
+    upcoming: (days = 7) => apiFetch<UpcomingReviews>(`/api/reviews/upcoming${query({ days })}`),
     practice: (params: { topic: string; limit?: number }) =>
       apiFetch<ReviewQueue>(`/api/reviews/practice${query(params)}`),
     grade: (cardId: number, quality: number, responseMs?: number) =>
@@ -128,6 +131,7 @@ export const api = {
     topics: (deckId?: number) => apiFetch<TopicPerformance[]>(`/api/analytics/topics${query({ deckId })}`),
     weakTopics: (deckId?: number) => apiFetch<TopicPerformance[]>(`/api/analytics/weak-topics${query({ deckId })}`),
     difficulty: () => apiFetch<DifficultyDistribution>("/api/analytics/difficulty"),
+    readiness: () => apiFetch<Readiness>("/api/analytics/readiness"),
     topicInsights: (params: { deckId?: number; weakOnly?: boolean } = {}) =>
       apiFetch<TopicInsight[]>(`/api/analytics/topic-insights${query(params)}`),
   },

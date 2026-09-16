@@ -6,7 +6,9 @@ import com.recallai.dto.ReviewQueueResponse;
 import com.recallai.dto.ReviewRequest;
 import com.recallai.dto.ReviewResponse;
 import com.recallai.dto.StreakResponse;
+import com.recallai.dto.UpcomingReviewsResponse;
 import com.recallai.security.AuthenticatedUser;
+import com.recallai.service.ReadinessService;
 import com.recallai.service.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -35,9 +37,18 @@ public class ReviewController {
     static final int MAX_QUEUE_LIMIT = 200;
 
     private final ReviewService reviewService;
+    private final ReadinessService readinessService;
 
-    public ReviewController(ReviewService reviewService) {
+    public ReviewController(ReviewService reviewService, ReadinessService readinessService) {
         this.reviewService = reviewService;
+        this.readinessService = readinessService;
+    }
+
+    @GetMapping("/upcoming")
+    @Operation(summary = "Cards coming due per day over the next days, plus the overdue backlog")
+    public UpcomingReviewsResponse upcoming(@AuthenticationPrincipal AuthenticatedUser user,
+                                            @RequestParam(defaultValue = "7") @Min(1) @Max(60) int days) {
+        return readinessService.upcoming(user.id(), days);
     }
 
     @GetMapping("/due")
