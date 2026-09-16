@@ -61,10 +61,11 @@ public class ReviewController {
     }
 
     @PostMapping("/{cardId}")
-    @Operation(summary = "Grade a card 0-5 and reschedule it with SM-2")
+    @Operation(summary = "Grade a card 0-5 and reschedule it with SM-2 plus adaptive difficulty",
+            description = "Send responseMs (time to reveal the answer) so slow recalls do not promote the card to an easier tier.")
     public ReviewResponse review(@AuthenticationPrincipal AuthenticatedUser user, @PathVariable Long cardId,
                                  @Valid @RequestBody ReviewRequest request) {
-        return reviewService.review(user.id(), cardId, request.quality());
+        return reviewService.review(user.id(), cardId, request.quality(), request.responseMs());
     }
 
     @GetMapping("/streak")

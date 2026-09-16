@@ -1,8 +1,11 @@
 package com.recallai.entity;
 
+import com.recallai.scheduler.DifficultyTier;
 import com.recallai.scheduler.ReviewResult;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -51,11 +54,26 @@ public class ReviewHistory {
     @Column(name = "reviewed_at", nullable = false, updatable = false)
     private Instant reviewedAt;
 
+    /** Time from seeing the question to revealing the answer, when the client reported it. */
+    @Column(name = "response_ms")
+    private Integer responseMs;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "difficulty_after", length = 10)
+    private DifficultyTier difficultyAfter;
+
     protected ReviewHistory() {
         // JPA
     }
 
     public ReviewHistory(Card card, User user, ReviewResult result, Instant reviewedAt) {
+        this(card, user, result, reviewedAt, null, null);
+    }
+
+    public ReviewHistory(Card card, User user, ReviewResult result, Instant reviewedAt, Integer responseMs,
+                         DifficultyTier difficultyAfter) {
+        this.responseMs = responseMs;
+        this.difficultyAfter = difficultyAfter;
         this.card = card;
         this.user = user;
         this.qualityScore = (short) result.quality();
@@ -100,5 +118,13 @@ public class ReviewHistory {
 
     public Instant getReviewedAt() {
         return reviewedAt;
+    }
+
+    public Integer getResponseMs() {
+        return responseMs;
+    }
+
+    public DifficultyTier getDifficultyAfter() {
+        return difficultyAfter;
     }
 }

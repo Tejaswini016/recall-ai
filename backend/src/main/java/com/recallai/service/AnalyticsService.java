@@ -3,12 +3,14 @@ package com.recallai.service;
 import com.recallai.config.ReviewProperties;
 import com.recallai.dto.ActivityPoint;
 import com.recallai.dto.AnalyticsSummaryResponse;
+import com.recallai.dto.DifficultyDistributionResponse;
 import com.recallai.dto.MasteryPoint;
 import com.recallai.dto.StreakResponse;
 import com.recallai.dto.TopicPerformanceResponse;
 import com.recallai.repository.CardRepository;
 import com.recallai.repository.DailyActivity;
 import com.recallai.repository.DeckRepository;
+import com.recallai.repository.DifficultyCount;
 import com.recallai.repository.QuizAttemptRepository;
 import com.recallai.repository.ReviewHistoryRepository;
 import com.recallai.repository.TopicStats;
@@ -19,6 +21,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import com.recallai.scheduler.DifficultyTier;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -152,6 +155,23 @@ public class AnalyticsService {
     @Transactional(readOnly = true)
     public List<TopicPerformanceResponse> weakTopics(Long userId, Long deckId) {
         return topics(userId, deckId).stream().filter(TopicPerformanceResponse::weak).toList();
+    }
+
+    /** Cards per adaptive difficulty tier, every tier present even when empty. */
+    @Transactional(readOnly = true)
+    public DifficultyDistributionResponse difficulty(Long userId) {
+        Map<String, Long> counts = cardRepository.countByDifficulty(userId).stream()
+                .collect(Collectors.toMap(DifficultyCount::getDifficulty, DifficultyCount::getCards));
+        long total = counts.values().stream().mapToLong(Long::longValue).sum();
+        List<DifficultyDistributionResponse.Bucket> buckets = new ArrayList<>();
+        for (DifficultyTier tier : DifficultyTier.values()) {
+            long cards = counts.getOrDefault(tier.name(), 0L);
+            buckets.add(new DifficultyDistributionResponse.Bucket(tier, cards, DeckService.progressPercent(cards, total)));
+        }
+        Double averageResponse = cardRepository.averageResponseMs(userId);
+        return new DifficultyDistributionResponse(total, buckets,
+                averageResponse == null ? null : (int) Math.round(averageResponse),
+                cardRepository.countWithLapses(userId));
     }
 
     private TopicPerformanceResponse toTopicResponse(TopicStats stats) {

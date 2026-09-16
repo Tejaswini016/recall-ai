@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { CheckCircle2, RotateCcw, Sparkles } from "lucide-react";
+import { DifficultyBadge, difficultyLabel } from "@/components/study/DifficultyBadge";
 import { RatingBar } from "@/components/study/RatingBar";
 import { useToast } from "@/components/providers/ToastProvider";
 import { Badge } from "@/components/ui/Badge";
@@ -52,19 +53,40 @@ function StudySession() {
   const [graded, setGraded] = useState<Graded[]>([]);
   const [grading, setGrading] = useState(false);
   const [remaining, setRemaining] = useState<number | null>(null);
+  // Time from the question appearing to the answer being revealed feeds adaptive difficulty.
+  const shownAt = useRef<number | null>(null);
+  const responseMs = useRef<number | null>(null);
 
   const cards = queue.data?.cards ?? [];
   const current = cards[index];
   const finished = queue.data !== null && index >= cards.length;
+  const currentId = current?.id;
+
+  useEffect(() => {
+    shownAt.current = Date.now();
+    responseMs.current = null;
+  }, [currentId]);
+
+  const reveal = useCallback(() => {
+    responseMs.current = shownAt.current === null ? null : Math.max(0, Date.now() - shownAt.current);
+    setRevealed(true);
+  }, []);
 
   const rate = useCallback(
     async (quality: number) => {
       if (!current || grading) return;
       setGrading(true);
       try {
-        const result = await api.reviews.grade(current.id, quality);
+        const result = await api.reviews.grade(current.id, quality, responseMs.current ?? undefined);
         setGraded((g) => [...g, { cardId: current.id, quality, result }]);
         setRemaining(result.remainingDue);
+        if (result.difficultyChanged) {
+          toast.toast(
+            `Now ${difficultyLabel(result.difficulty).toLowerCase()}: this card was ${difficultyLabel(result.previousDifficulty).toLowerCase()}${
+              result.newInterval !== result.sm2Interval ? `, next review in ${result.newInterval}d instead of ${result.sm2Interval}d` : ""
+            }`,
+          );
+        }
         setRevealed(false);
         setIndex((i) => i + 1);
       } catch (error) {
@@ -82,7 +104,7 @@ function StudySession() {
       if (!current) return;
       if (!revealed && (event.key === " " || event.code === "Space" || event.key === "Enter")) {
         event.preventDefault();
-        setRevealed(true);
+        reveal();
         return;
       }
       if (revealed && /^[0-5]$/.test(event.key)) {
@@ -92,7 +114,7 @@ function StudySession() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [current, revealed, rate]);
+  }, [current, revealed, rate, reveal]);
 
   const restart = () => {
     setIndex(0);
@@ -174,6 +196,7 @@ function StudySession() {
         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted">
           <span>{current.deckName}</span>
           {current.topic && <Badge tone="primary">{current.topic}</Badge>}
+          <DifficultyBadge tier={current.difficulty} />
           {current.daysOverdue > 0 && <Badge tone="warning">{current.daysOverdue}d overdue</Badge>}
         </div>
         <p className="text-xl font-semibold leading-snug sm:text-2xl">{current.question}</p>
@@ -188,7 +211,7 @@ function StudySession() {
           </div>
         ) : (
           <div className="mt-8">
-            <Button size="lg" className="w-full" onClick={() => setRevealed(true)}>
+            <Button size="lg" className="w-full" onClick={reveal}>
               Show answer
             </Button>
             <p className="mt-2 text-center text-xs text-muted">

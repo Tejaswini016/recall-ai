@@ -1,8 +1,12 @@
 package com.recallai.entity;
 
+import com.recallai.scheduler.AdaptiveDifficultyService;
+import com.recallai.scheduler.DifficultyTier;
 import com.recallai.scheduler.Sm2State;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -66,6 +70,23 @@ public class Card {
     @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
 
+    /** Adaptive difficulty (phase 2): the tier and the counters that move it. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private DifficultyTier difficulty = DifficultyTier.MEDIUM;
+
+    @Column(name = "success_streak", nullable = false)
+    private int successStreak = 0;
+
+    @Column(name = "lapse_count", nullable = false)
+    private int lapseCount = 0;
+
+    @Column(name = "total_reviews", nullable = false)
+    private int totalReviews = 0;
+
+    @Column(name = "avg_response_ms")
+    private Integer avgResponseMs;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -103,6 +124,18 @@ public class Card {
         this.intervalDays = intervalDays;
         this.repetitions = repetitions;
         this.dueDate = dueDate;
+    }
+
+    public AdaptiveDifficultyService.State adaptiveState() {
+        return new AdaptiveDifficultyService.State(difficulty, successStreak, lapseCount, totalReviews, avgResponseMs);
+    }
+
+    public void applyAdaptive(AdaptiveDifficultyService.Outcome outcome) {
+        this.difficulty = outcome.tier();
+        this.successStreak = outcome.successStreak();
+        this.lapseCount = outcome.lapseCount();
+        this.totalReviews = outcome.totalReviews();
+        this.avgResponseMs = outcome.avgResponseMs();
     }
 
     public Long getId() {
@@ -147,6 +180,26 @@ public class Card {
 
     public LocalDate getDueDate() {
         return dueDate;
+    }
+
+    public DifficultyTier getDifficulty() {
+        return difficulty;
+    }
+
+    public int getSuccessStreak() {
+        return successStreak;
+    }
+
+    public int getLapseCount() {
+        return lapseCount;
+    }
+
+    public int getTotalReviews() {
+        return totalReviews;
+    }
+
+    public Integer getAvgResponseMs() {
+        return avgResponseMs;
     }
 
     public Instant getCreatedAt() {

@@ -18,6 +18,7 @@ import com.recallai.exception.ResourceNotFoundException;
 import com.recallai.repository.CardRepository;
 import com.recallai.repository.ReviewHistoryRepository;
 import com.recallai.repository.UserRepository;
+import com.recallai.scheduler.AdaptiveDifficultyService;
 import com.recallai.scheduler.Sm2Service;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -59,7 +60,7 @@ class ReviewServiceTest {
     void setUp() {
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         reviewService = new ReviewService(cardRepository, reviewHistoryRepository, userRepository, deckService,
-                new Sm2Service(clock), new ReviewProperties(21), clock);
+                new Sm2Service(clock), new AdaptiveDifficultyService(), new ReviewProperties(21), clock);
         user = new User("Ada", "ada@example.com", "hash");
         ReflectionTestUtils.setField(user, "id", USER_ID);
         Deck deck = new Deck(user, "Deck", null, null, List.of());

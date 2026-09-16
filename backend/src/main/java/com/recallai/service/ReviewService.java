@@ -13,6 +13,7 @@ import com.recallai.exception.ResourceNotFoundException;
 import com.recallai.repository.CardRepository;
 import com.recallai.repository.ReviewHistoryRepository;
 import com.recallai.repository.UserRepository;
+import com.recallai.scheduler.AdaptiveDifficultyService;
 import com.recallai.scheduler.ReviewResult;
 import com.recallai.scheduler.Sm2Service;
 import java.sql.Date;
@@ -42,17 +43,20 @@ public class ReviewService {
     private final UserRepository userRepository;
     private final DeckService deckService;
     private final Sm2Service sm2Service;
+    private final AdaptiveDifficultyService adaptiveDifficultyService;
     private final ReviewProperties reviewProperties;
     private final Clock clock;
 
     public ReviewService(CardRepository cardRepository, ReviewHistoryRepository reviewHistoryRepository,
                          UserRepository userRepository, DeckService deckService, Sm2Service sm2Service,
-                         ReviewProperties reviewProperties, Clock clock) {
+                         AdaptiveDifficultyService adaptiveDifficultyService, ReviewProperties reviewProperties,
+                         Clock clock) {
         this.cardRepository = cardRepository;
         this.reviewHistoryRepository = reviewHistoryRepository;
         this.userRepository = userRepository;
         this.deckService = deckService;
         this.sm2Service = sm2Service;
+        this.adaptiveDifficultyService = adaptiveDifficultyService;
         this.reviewProperties = reviewProperties;
         this.clock = clock;
     }
@@ -90,18 +94,38 @@ public class ReviewService {
 
     @Transactional
     public ReviewResponse review(Long userId, Long cardId, int quality) {
+        return review(userId, cardId, quality, null);
+    }
+
+    /**
+     * SM-2 first, then adaptive difficulty: the tier is updated from the outcome and may shorten the
+     * interval SM-2 produced (hard and expert cards come back sooner). The SM-2 state on the card
+     * (ease, repetitions) is exactly what SM-2 computed.
+     */
+    @Transactional
+    public ReviewResponse review(Long userId, Long cardId, int quality, Integer responseMs) {
         Card card = cardRepository.findOwnedForUpdate(cardId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Card", cardId));
 
-        ReviewResult result = sm2Service.calculateNextReview(card, quality);
+        ReviewResult sm2 = sm2Service.calculateNextReview(card, quality);
+        AdaptiveDifficultyService.Outcome adaptive =
+                adaptiveDifficultyService.evaluate(card.adaptiveState(), quality, responseMs);
+        int interval = adaptiveDifficultyService.adjustInterval(sm2.newInterval(), sm2.newRepetitions(),
+                adaptive.tier());
+        ReviewResult result = interval == sm2.newInterval()
+                ? sm2
+                : sm2.withInterval(interval, LocalDate.now(clock).plusDays(interval));
+
         card.applySchedule(result.newEaseFactor(), result.newInterval(), result.newRepetitions(),
                 result.nextDueDate());
-        reviewHistoryRepository.save(
-                new ReviewHistory(card, userRepository.getReferenceById(userId), result, clock.instant()));
+        card.applyAdaptive(adaptive);
+        reviewHistoryRepository.save(new ReviewHistory(card, userRepository.getReferenceById(userId), result,
+                clock.instant(), responseMs, adaptive.tier()));
 
         long remaining = cardRepository.countDue(userId, LocalDate.now(clock));
-        log.info("User {} reviewed card {} quality={} interval {}->{} due {}",
-                userId, cardId, quality, result.previousInterval(), result.newInterval(), result.nextDueDate());
+        log.info("User {} reviewed card {} quality={} interval {}->{} (sm2 {}) due {} tier {}->{}",
+                userId, cardId, quality, result.previousInterval(), result.newInterval(), sm2.newInterval(),
+                result.nextDueDate(), adaptive.previousTier(), adaptive.tier());
 
         return new ReviewResponse(
                 card.getId(),
@@ -114,7 +138,12 @@ public class ReviewService {
                 result.newRepetitions(),
                 result.nextDueDate(),
                 isMastered(result.newInterval()),
-                remaining);
+                remaining,
+                adaptive.previousTier(),
+                adaptive.tier(),
+                adaptive.tierChanged(),
+                adaptive.successStreak(),
+                sm2.newInterval());
     }
 
     @Transactional(readOnly = true)

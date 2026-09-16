@@ -51,6 +51,8 @@ export interface DeckRequest {
   tags: string[];
 }
 
+export type DifficultyTier = "EASY" | "MEDIUM" | "HARD" | "EXPERT";
+
 export interface Card {
   id: number;
   deckId: number;
@@ -63,6 +65,10 @@ export interface Card {
   interval: number;
   repetitions: number;
   dueDate: string;
+  difficulty: DifficultyTier;
+  successStreak: number;
+  lapseCount: number;
+  totalReviews: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -89,6 +95,9 @@ export interface DueCard {
   repetitions: number;
   dueDate: string;
   daysOverdue: number;
+  difficulty: DifficultyTier;
+  successStreak: number;
+  lapseCount: number;
 }
 
 export interface ReviewQueue {
@@ -109,6 +118,11 @@ export interface ReviewResult {
   nextDueDate: string;
   mastered: boolean;
   remainingDue: number;
+  previousDifficulty: DifficultyTier;
+  difficulty: DifficultyTier;
+  difficultyChanged: boolean;
+  successStreak: number;
+  sm2Interval: number;
 }
 
 export interface Streak {
@@ -132,6 +146,8 @@ export interface ReviewHistoryItem {
   previousEaseFactor: number;
   newEaseFactor: number;
   reviewedAt: string;
+  responseMs: number | null;
+  difficultyAfter: DifficultyTier | null;
 }
 
 export interface GenerateCardsResponse {
@@ -243,6 +259,13 @@ export interface TopicPerformance {
   successRatePercent: number;
   lastReviewedAt: string;
   weak: boolean;
+}
+
+export interface DifficultyDistribution {
+  totalCards: number;
+  tiers: { tier: DifficultyTier; cards: number; percent: number }[];
+  averageResponseMs: number | null;
+  cardsWithLapses: number;
 }
 
 export type TopicCategory = "CRITICAL" | "WEAK" | "GOOD" | "STRONG" | "UNRATED";

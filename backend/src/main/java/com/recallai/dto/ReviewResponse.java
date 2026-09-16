@@ -1,5 +1,6 @@
 package com.recallai.dto;
 
+import com.recallai.scheduler.DifficultyTier;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -20,5 +21,10 @@ public record ReviewResponse(
         int repetitions,
         LocalDate nextDueDate,
         boolean mastered,
-        long remainingDue) {
+        long remainingDue,
+        DifficultyTier previousDifficulty,
+        DifficultyTier difficulty,
+        boolean difficultyChanged,
+        int successStreak,
+        int sm2Interval) {
 }

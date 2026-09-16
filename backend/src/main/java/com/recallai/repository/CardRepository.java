@@ -64,7 +64,8 @@ public interface CardRepository extends JpaRepository<Card, Long> {
             JOIN decks d ON d.id = c.deck_id
             WHERE d.user_id = :userId
               AND lower(btrim(coalesce(c.topic, d.name))) = lower(btrim(CAST(:topic AS TEXT)))
-            ORDER BY c.ease_factor ASC, c.due_date ASC, c.id ASC
+            ORDER BY CASE c.difficulty WHEN 'EXPERT' THEN 0 WHEN 'HARD' THEN 1 WHEN 'MEDIUM' THEN 2 ELSE 3 END,
+                     c.ease_factor ASC, c.due_date ASC, c.id ASC
             """, nativeQuery = true)
     List<Card> findByTopic(@Param("userId") Long userId, @Param("topic") String topic, Pageable pageable);
 
@@ -120,6 +121,20 @@ public interface CardRepository extends JpaRepository<Card, Long> {
                       Pageable pageable);
 
     /** Every distinct tag the user has applied to a deck or a card, for tag pickers. */
+    @Query(value = """
+            SELECT c.difficulty AS difficulty, count(*) AS cards
+            FROM cards c JOIN decks d ON d.id = c.deck_id
+            WHERE d.user_id = :userId
+            GROUP BY c.difficulty
+            """, nativeQuery = true)
+    List<DifficultyCount> countByDifficulty(@Param("userId") Long userId);
+
+    @Query("SELECT avg(c.avgResponseMs) FROM Card c WHERE c.deck.user.id = :userId AND c.avgResponseMs IS NOT NULL")
+    Double averageResponseMs(@Param("userId") Long userId);
+
+    @Query("SELECT count(c) FROM Card c WHERE c.deck.user.id = :userId AND c.lapseCount > 0")
+    long countWithLapses(@Param("userId") Long userId);
+
     @Query(value = """
             SELECT DISTINCT t FROM (
                 SELECT unnest(d.tags) AS t FROM decks d WHERE d.user_id = :userId

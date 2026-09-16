@@ -1,6 +1,7 @@
 package com.recallai.dto;
 
 import com.recallai.entity.Card;
+import com.recallai.scheduler.DifficultyTier;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -20,7 +21,10 @@ public record DueCardResponse(
         int interval,
         int repetitions,
         LocalDate dueDate,
-        long daysOverdue) {
+        long daysOverdue,
+        DifficultyTier difficulty,
+        int successStreak,
+        int lapseCount) {
 
     /** Requires the card's deck to be loaded (the queue query fetch-joins it). */
     public static DueCardResponse from(Card card, LocalDate today) {
@@ -38,6 +42,9 @@ public record DueCardResponse(
                 card.getIntervalDays(),
                 card.getRepetitions(),
                 card.getDueDate(),
-                overdue);
+                overdue,
+                card.getDifficulty(),
+                card.getSuccessStreak(),
+                card.getLapseCount());
     }
 }

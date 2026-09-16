@@ -9,6 +9,7 @@ import type {
   CardRequest,
   Deck,
   DeckRequest,
+  DifficultyDistribution,
   GenerateCardsResponse,
   MasteryPoint,
   PageResponse,
@@ -59,8 +60,8 @@ export const api = {
       apiFetch<ReviewQueue>(`/api/reviews/due${query(params)}`),
     practice: (params: { topic: string; limit?: number }) =>
       apiFetch<ReviewQueue>(`/api/reviews/practice${query(params)}`),
-    grade: (cardId: number, quality: number) =>
-      apiFetch<ReviewResult>(`/api/reviews/${cardId}`, { method: "POST", body: { quality } }),
+    grade: (cardId: number, quality: number, responseMs?: number) =>
+      apiFetch<ReviewResult>(`/api/reviews/${cardId}`, { method: "POST", body: { quality, responseMs } }),
     streak: () => apiFetch<Streak>("/api/reviews/streak"),
     history: (params: { page?: number; size?: number } = {}) =>
       apiFetch<PageResponse<ReviewHistoryItem>>(`/api/reviews/history${query(params)}`),
@@ -96,6 +97,7 @@ export const api = {
     mastery: (days: number) => apiFetch<MasteryPoint[]>(`/api/analytics/mastery${query({ days })}`),
     topics: (deckId?: number) => apiFetch<TopicPerformance[]>(`/api/analytics/topics${query({ deckId })}`),
     weakTopics: (deckId?: number) => apiFetch<TopicPerformance[]>(`/api/analytics/weak-topics${query({ deckId })}`),
+    difficulty: () => apiFetch<DifficultyDistribution>("/api/analytics/difficulty"),
     topicInsights: (params: { deckId?: number; weakOnly?: boolean } = {}) =>
       apiFetch<TopicInsight[]>(`/api/analytics/topic-insights${query(params)}`),
   },

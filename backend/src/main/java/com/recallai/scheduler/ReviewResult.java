@@ -21,4 +21,10 @@ public record ReviewResult(
     public Sm2State newState() {
         return new Sm2State(newEaseFactor, newInterval, newRepetitions);
     }
+
+    /** The same review with a rescaled interval (adaptive difficulty applies this after SM-2). */
+    public ReviewResult withInterval(int interval, LocalDate dueDate) {
+        return new ReviewResult(quality, successful, previousEaseFactor, previousInterval, previousRepetitions,
+                newEaseFactor, interval, newRepetitions, dueDate);
+    }
 }

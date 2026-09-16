@@ -2,6 +2,7 @@ package com.recallai.controller;
 
 import com.recallai.dto.ActivityPoint;
 import com.recallai.dto.AnalyticsSummaryResponse;
+import com.recallai.dto.DifficultyDistributionResponse;
 import com.recallai.dto.MasteryPoint;
 import com.recallai.dto.TopicInsightResponse;
 import com.recallai.dto.TopicPerformanceResponse;
@@ -61,6 +62,12 @@ public class AnalyticsController {
     public List<TopicPerformanceResponse> topics(@AuthenticationPrincipal AuthenticatedUser user,
                                                  @RequestParam(required = false) Long deckId) {
         return analyticsService.topics(user.id(), deckId);
+    }
+
+    @GetMapping("/difficulty")
+    @Operation(summary = "Cards per adaptive difficulty tier (easy, medium, hard, expert)")
+    public DifficultyDistributionResponse difficulty(@AuthenticationPrincipal AuthenticatedUser user) {
+        return analyticsService.difficulty(user.id());
     }
 
     @GetMapping("/topic-insights")

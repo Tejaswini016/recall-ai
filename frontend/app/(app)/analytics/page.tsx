@@ -9,6 +9,7 @@ import { StatTile } from "@/components/ui/StatTile";
 import { ErrorState, Skeleton } from "@/components/ui/States";
 import { ActivityChart, MasteryChart, RetentionChart, TopicChart } from "@/components/analytics/Charts";
 import { WeakTopicsPanel } from "@/components/topics/WeakTopicsPanel";
+import { DifficultyDistributionCard } from "@/components/analytics/DifficultyDistributionCard";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { api } from "@/lib/endpoints";
 import { cn } from "@/lib/cn";
@@ -23,6 +24,7 @@ export default function AnalyticsPage() {
   const mastery = useApiQuery(() => api.analytics.mastery(days), [days]);
   const topics = useApiQuery(() => api.analytics.topics());
   const insights = useApiQuery(() => api.analytics.topicInsights());
+  const difficulty = useApiQuery(() => api.analytics.difficulty());
 
   const rangePicker = (
     <div className="flex rounded-lg border border-border bg-card p-0.5" role="group" aria-label="Time range">
@@ -129,6 +131,8 @@ export default function AnalyticsPage() {
         </div>
         <WeakTopicsPanel insights={insights.data} loading={insights.loading} error={insights.error} onRetry={insights.refetch} />
       </Card>
+
+      <DifficultyDistributionCard data={difficulty.data} loading={difficulty.loading} error={difficulty.error} onRetry={difficulty.refetch} />
 
       <Card>
         <CardTitle className="mb-4">Flashcard recall by topic</CardTitle>

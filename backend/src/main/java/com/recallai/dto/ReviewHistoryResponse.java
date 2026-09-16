@@ -1,6 +1,7 @@
 package com.recallai.dto;
 
 import com.recallai.entity.ReviewHistory;
+import com.recallai.scheduler.DifficultyTier;
 import com.recallai.scheduler.Sm2Service;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -18,7 +19,9 @@ public record ReviewHistoryResponse(
         int newInterval,
         BigDecimal previousEaseFactor,
         BigDecimal newEaseFactor,
-        Instant reviewedAt) {
+        Instant reviewedAt,
+        Integer responseMs,
+        DifficultyTier difficultyAfter) {
 
     /** Requires card and deck to be loaded (the history query fetch-joins both). */
     public static ReviewHistoryResponse from(ReviewHistory history) {
@@ -35,6 +38,8 @@ public record ReviewHistoryResponse(
                 history.getNewInterval(),
                 history.getPreviousEaseFactor(),
                 history.getNewEaseFactor(),
-                history.getReviewedAt());
+                history.getReviewedAt(),
+                history.getResponseMs(),
+                history.getDifficultyAfter());
     }
 }
