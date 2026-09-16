@@ -203,5 +203,5 @@ const insights = await api("/api/analytics/topic-insights", { token });
 log(`topic insights: ${insights.map((t) => `${t.topic}=${t.category}/${t.accuracyPercent}%`).join(" | ")}`);
 
 await browser.close();
-writeFileSync(new URL("./walkthrough-report.txt", import.meta.url), report.join("\n"));
+console.log("\n--- walkthrough report ---\n" + report.join("\n"));
 console.log("DONE");
