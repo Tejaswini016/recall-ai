@@ -329,6 +329,80 @@ export interface TopicInsight {
   recommendedAction: string;
 }
 
+export type KnowledgeLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
+export type StudyPlanStatus = "ACTIVE" | "COMPLETED" | "ARCHIVED";
+export type StudyTaskType = "REVIEW_DUE" | "LEARN_TOPIC" | "PRACTICE_QUIZ" | "REVIEW_MISTAKES" | "MOCK_EXAM" | "FINAL_REVISION";
+export type StudyTaskStatus = "PENDING" | "DONE" | "SKIPPED";
+
+export interface StudyPlanTask {
+  id: number;
+  planId: number;
+  examName: string;
+  date: string;
+  order: number;
+  type: StudyTaskType;
+  topic: string | null;
+  title: string;
+  description: string | null;
+  minutes: number;
+  status: StudyTaskStatus;
+  completedAt: string | null;
+}
+
+export interface StudyPlanProgress {
+  totalTasks: number;
+  doneTasks: number;
+  skippedTasks: number;
+  pendingTasks: number;
+  percentComplete: number;
+  totalMinutes: number;
+  doneMinutes: number;
+  daysUntilExam: number;
+  studyDaysLeft: number;
+  studyDaysTotal: number;
+  onTrack: boolean;
+  dueToday: number;
+}
+
+export interface StudyPlanSummary {
+  id: number;
+  examName: string;
+  examDate: string;
+  topics: string[];
+  knowledgeLevel: KnowledgeLevel;
+  minutesPerDay: number;
+  status: StudyPlanStatus;
+  aiGenerated: boolean;
+  createdAt: string;
+  progress: StudyPlanProgress;
+}
+
+export interface StudyPlan extends StudyPlanSummary {
+  preferredDays: number[];
+  summary: string | null;
+  topicAdvice: { topic: string; advice: string }[];
+  generatedAt: string;
+  tasks: StudyPlanTask[];
+}
+
+export interface CreateStudyPlanRequest {
+  examName: string;
+  examDate: string;
+  topics: string[];
+  knowledgeLevel: KnowledgeLevel;
+  minutesPerDay: number;
+  preferredDays: number[];
+}
+
+export interface TodayPlan {
+  date: string;
+  activePlans: number;
+  tasks: StudyPlanTask[];
+  carriedOver: StudyPlanTask[];
+  totalMinutes: number;
+  doneMinutes: number;
+}
+
 export interface AiStatus {
   available: boolean;
   demoMode: boolean;

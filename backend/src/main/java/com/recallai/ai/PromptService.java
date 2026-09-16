@@ -15,17 +15,25 @@ public class PromptService {
     private final FlashcardPromptBuilder flashcardPromptBuilder;
     private final QuizPromptBuilder quizPromptBuilder;
     private final MistakePromptBuilder mistakePromptBuilder;
+    private final StudyPlanPromptBuilder studyPlanPromptBuilder;
 
     public PromptService(FlashcardPromptBuilder flashcardPromptBuilder, QuizPromptBuilder quizPromptBuilder) {
-        this(flashcardPromptBuilder, quizPromptBuilder, new MistakePromptBuilder(new com.fasterxml.jackson.databind.ObjectMapper()));
+        this(flashcardPromptBuilder, quizPromptBuilder,
+                new MistakePromptBuilder(new com.fasterxml.jackson.databind.ObjectMapper()),
+                new StudyPlanPromptBuilder(new com.fasterxml.jackson.databind.ObjectMapper()));
     }
 
     @org.springframework.beans.factory.annotation.Autowired
     public PromptService(FlashcardPromptBuilder flashcardPromptBuilder, QuizPromptBuilder quizPromptBuilder,
-                         MistakePromptBuilder mistakePromptBuilder) {
+                         MistakePromptBuilder mistakePromptBuilder, StudyPlanPromptBuilder studyPlanPromptBuilder) {
         this.flashcardPromptBuilder = flashcardPromptBuilder;
         this.quizPromptBuilder = quizPromptBuilder;
         this.mistakePromptBuilder = mistakePromptBuilder;
+        this.studyPlanPromptBuilder = studyPlanPromptBuilder;
+    }
+
+    public AiPrompt studyPlan(StudyPlanContext context) {
+        return studyPlanPromptBuilder.build(context);
     }
 
     public AiPrompt mistakeCard(MistakeContext mistake) {
@@ -45,6 +53,7 @@ public class PromptService {
             case FLASHCARDS -> FlashcardPromptBuilder.VERSION;
             case QUIZ -> QuizPromptBuilder.VERSION;
             case MISTAKE_CARD -> MistakePromptBuilder.VERSION;
+            case STUDY_PLAN -> StudyPlanPromptBuilder.VERSION;
         };
     }
 

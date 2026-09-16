@@ -5,5 +5,7 @@ public enum AiOperation {
     FLASHCARDS,
     QUIZ,
     /** One corrective flashcard built from a mistake. */
-    MISTAKE_CARD
+    MISTAKE_CARD,
+    /** Summary and per-topic advice for a study plan. */
+    STUDY_PLAN
 }

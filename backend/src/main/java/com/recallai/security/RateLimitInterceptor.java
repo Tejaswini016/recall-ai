@@ -20,6 +20,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
     static final String LIMIT_HEADER = "X-RateLimit-Limit";
     static final String REMAINING_HEADER = "X-RateLimit-Remaining";
+    static final String AI_PATH_PREFIX = "/api/ai/";
 
     private static final Logger log = LoggerFactory.getLogger(RateLimitInterceptor.class);
 
@@ -31,7 +32,10 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        if (!(handler instanceof HandlerMethod)) {
+        if (!(handler instanceof HandlerMethod method)) {
+            return true;
+        }
+        if (!request.getRequestURI().startsWith(AI_PATH_PREFIX) && !method.hasMethodAnnotation(AiRateLimited.class)) {
             return true;
         }
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

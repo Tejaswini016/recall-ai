@@ -7,6 +7,7 @@ import com.recallai.dto.MistakeSummaryResponse;
 import com.recallai.dto.PageResponse;
 import com.recallai.entity.MistakeSource;
 import com.recallai.entity.MistakeStatus;
+import com.recallai.security.AiRateLimited;
 import com.recallai.security.AuthenticatedUser;
 import com.recallai.service.MistakeFlashcardService;
 import com.recallai.service.MistakeService;
@@ -74,6 +75,7 @@ public class MistakeController {
 
     @PostMapping("/{mistakeId}/flashcard")
     @ResponseStatus(HttpStatus.CREATED)
+    @AiRateLimited
     @Operation(summary = "Review this mistake: generate an explanatory flashcard, save it due today and mark the mistake converted",
             description = "The model writes the card when configured; otherwise, or if its output is invalid, the card is built from the stored question, correct answer and explanation.")
     public MistakeFlashcardResponse toFlashcard(@AuthenticationPrincipal AuthenticatedUser user,

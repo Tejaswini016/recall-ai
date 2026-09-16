@@ -22,6 +22,8 @@ public class AiGenerationService {
     };
     private static final TypeReference<List<GeneratedQuizQuestion>> QUIZ_LIST = new TypeReference<>() {
     };
+    private static final TypeReference<List<StudyPlanAdvice>> ADVICE_LIST = new TypeReference<>() {
+    };
 
     private final PromptService promptService;
     private final AiRetryService retryService;
@@ -94,6 +96,31 @@ public class AiGenerationService {
         List<GeneratedFlashcard> items = List.of(attempt.value());
         cacheService.store(key, items);
         log.info("Generated a corrective flashcard for a mistake");
+        return new AiGenerationResult<>(items, false, attempt.correctiveRetries());
+    }
+
+    /** Coaching text for a study plan; cached on the exact standing the model was shown. */
+    public AiGenerationResult<StudyPlanAdvice> generateStudyPlanAdvice(StudyPlanContext context) {
+        StringBuilder material = new StringBuilder(context.examName()).append('\n')
+                .append(context.daysUntilExam()).append('/').append(context.studyDays()).append('/')
+                .append(context.minutesPerDay()).append('/').append(context.knowledgeLevel()).append('/')
+                .append(context.openMistakes()).append('\n');
+        for (StudyPlanContext.TopicStanding topic : context.topics()) {
+            material.append(topic.topic()).append('|').append(topic.category()).append('|').append(topic.accuracy())
+                    .append('|').append(topic.attempts()).append('|').append(topic.plannedMinutes()).append('\n');
+        }
+        AiCacheService.CacheKey key = AiCacheService.CacheKey.of(material.toString(), "", AiOperation.STUDY_PLAN,
+                properties.effectiveModel(), promptService.promptVersion(AiOperation.STUDY_PLAN));
+        Optional<List<StudyPlanAdvice>> cached = cacheService.lookup(key, ADVICE_LIST);
+        if (cached.isPresent() && !cached.get().isEmpty()) {
+            return new AiGenerationResult<>(cached.get(), true, 0);
+        }
+        List<String> topics = context.topics().stream().map(StudyPlanContext.TopicStanding::topic).toList();
+        AiRetryService.Attempt<StudyPlanAdvice> attempt = retryService.execute(
+                promptService.studyPlan(context), text -> validator.validateStudyPlanAdvice(text, topics));
+        List<StudyPlanAdvice> items = List.of(attempt.value());
+        cacheService.store(key, items);
+        log.info("Generated study plan advice for {} topics", topics.size());
         return new AiGenerationResult<>(items, false, attempt.correctiveRetries());
     }
 

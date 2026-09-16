@@ -74,6 +74,46 @@ public class AiResponseValidator {
         return card;
     }
 
+    /**
+     * Study-plan coaching text. Advice for topics that are not in the plan is dropped rather than
+     * rejected; duplicates keep the first entry.
+     */
+    public StudyPlanAdvice validateStudyPlanAdvice(String rawText, List<String> allowedTopics) {
+        JsonNode root = parseObject(rawText);
+        List<String> problems = new ArrayList<>();
+        String summary = requiredText(root, "summary", "response", StudyPlanPromptBuilder.MAX_SUMMARY_CHARS, problems);
+        JsonNode list = root.get("topicAdvice");
+        List<StudyPlanAdvice.TopicAdvice> advice = new ArrayList<>();
+        if (list == null || !list.isArray()) {
+            problems.add("\"topicAdvice\" must be an array");
+        } else {
+            Set<String> allowed = new HashSet<>();
+            for (String topic : allowedTopics) {
+                allowed.add(topic.strip().toLowerCase(Locale.ROOT));
+            }
+            Set<String> seen = new HashSet<>();
+            for (int i = 0; i < list.size(); i++) {
+                JsonNode node = list.get(i);
+                String where = "topicAdvice[" + i + "]";
+                if (!node.isObject()) {
+                    problems.add(where + " is not an object");
+                    continue;
+                }
+                String topic = requiredText(node, "topic", where, FlashcardPromptBuilder.MAX_TOPIC_CHARS, problems);
+                String text = requiredText(node, "advice", where, StudyPlanPromptBuilder.MAX_ADVICE_CHARS, problems);
+                if (topic == null || text == null) {
+                    continue;
+                }
+                String key = topic.toLowerCase(Locale.ROOT);
+                if (allowed.contains(key) && seen.add(key)) {
+                    advice.add(new StudyPlanAdvice.TopicAdvice(topic, text));
+                }
+            }
+        }
+        failIfAny(problems);
+        return new StudyPlanAdvice(summary, List.copyOf(advice));
+    }
+
     /** One card object; records every problem and returns null when the card is unusable. */
     private static GeneratedFlashcard parseCard(JsonNode node, String where, List<String> problems) {
         if (!node.isObject()) {

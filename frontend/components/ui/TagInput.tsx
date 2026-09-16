@@ -3,23 +3,34 @@
 import { useId, useState } from "react";
 import { X } from "lucide-react";
 
-/** Comma- or Enter-separated tag editor; tags are lower-cased to match the API's normalization. */
+/**
+ * Comma- or Enter-separated tag editor. By default tags are lower-cased to match the API's tag
+ * normalization; topic lists keep their case with {@code preserveCase}.
+ */
 export function TagInput({
   label,
   value,
   onChange,
   max = 10,
+  maxLength = 30,
+  preserveCase = false,
+  placeholder,
+  hint,
 }: {
   label: string;
   value: string[];
   onChange: (tags: string[]) => void;
   max?: number;
+  maxLength?: number;
+  preserveCase?: boolean;
+  placeholder?: string;
+  hint?: string;
 }) {
   const [draft, setDraft] = useState("");
   const id = useId();
 
   const commit = () => {
-    const tag = draft.trim().toLowerCase();
+    const tag = preserveCase ? draft.trim() : draft.trim().toLowerCase();
     setDraft("");
     if (!tag || value.includes(tag) || value.length >= max) return;
     onChange([...value, tag]);
@@ -52,12 +63,12 @@ export function TagInput({
             }
           }}
           onBlur={commit}
-          placeholder={value.length ? "" : "Add a tag and press Enter"}
-          maxLength={30}
+          placeholder={value.length ? "" : (placeholder ?? "Add a tag and press Enter")}
+          maxLength={maxLength}
           className="min-w-32 flex-1 bg-transparent px-1 py-0.5 text-sm outline-none placeholder:text-muted"
         />
       </div>
-      <p className="text-xs text-muted">Up to {max} tags. Press Enter or comma to add.</p>
+      <p className="text-xs text-muted">{hint ?? `Up to ${max} tags. Press Enter or comma to add.`}</p>
     </div>
   );
 }

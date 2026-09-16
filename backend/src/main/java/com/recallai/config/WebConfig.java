@@ -8,8 +8,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    /** Only the model-backed endpoints are rate limited; everything else is cheap. */
-    static final String[] RATE_LIMITED_PATHS = {"/api/ai/**", "/api/mistakes/*/flashcard"};
+    /**
+     * The interceptor sees every API call but only counts the model-backed ones: everything under
+     * /api/ai plus handlers marked {@link com.recallai.security.AiRateLimited}.
+     */
+    static final String[] RATE_LIMITED_PATHS = {"/api/**"};
 
     private final RateLimitInterceptor rateLimitInterceptor;
 

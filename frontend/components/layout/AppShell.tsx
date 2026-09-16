@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AlertTriangle, BarChart3, BookOpen, LayoutDashboard, LogOut, Menu, Settings, X } from "lucide-react";
+import { AlertTriangle, BarChart3, BookOpen, CalendarDays, LayoutDashboard, LogOut, Menu, Settings, X } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { LoadingState } from "@/components/ui/States";
 import { cn } from "@/lib/cn";
@@ -12,6 +12,7 @@ import { GlobalSearch } from "@/components/layout/GlobalSearch";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/decks", label: "Decks", icon: BookOpen },
+  { href: "/plan", label: "Study plan", icon: CalendarDays },
   { href: "/mistakes", label: "Mistakes", icon: AlertTriangle },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },

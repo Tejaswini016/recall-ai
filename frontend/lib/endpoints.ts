@@ -2,6 +2,7 @@ import { apiFetch, query } from "@/lib/api";
 import type {
   ActivityPoint,
   AiStatus,
+  CreateStudyPlanRequest,
   AnalyticsSummary,
   AnswerSubmission,
   AuthResponse,
@@ -27,6 +28,12 @@ import type {
   ReviewResult,
   SearchResponse,
   Streak,
+  StudyPlan,
+  StudyPlanStatus,
+  StudyPlanSummary,
+  StudyPlanTask,
+  StudyTaskStatus,
+  TodayPlan,
   TopicInsight,
   TopicPerformance,
   User,
@@ -117,6 +124,18 @@ export const api = {
     difficulty: () => apiFetch<DifficultyDistribution>("/api/analytics/difficulty"),
     topicInsights: (params: { deckId?: number; weakOnly?: boolean } = {}) =>
       apiFetch<TopicInsight[]>(`/api/analytics/topic-insights${query(params)}`),
+  },
+  studyPlans: {
+    create: (body: CreateStudyPlanRequest) => apiFetch<StudyPlan>("/api/study-plans", { method: "POST", body }),
+    list: () => apiFetch<StudyPlanSummary[]>("/api/study-plans"),
+    today: () => apiFetch<TodayPlan>("/api/study-plans/today"),
+    get: (id: number) => apiFetch<StudyPlan>(`/api/study-plans/${id}`),
+    regenerate: (id: number) => apiFetch<StudyPlan>(`/api/study-plans/${id}/regenerate`, { method: "POST" }),
+    updateTask: (planId: number, taskId: number, status: StudyTaskStatus) =>
+      apiFetch<StudyPlanTask>(`/api/study-plans/${planId}/tasks/${taskId}`, { method: "PATCH", body: { status } }),
+    updateStatus: (id: number, status: StudyPlanStatus) =>
+      apiFetch<StudyPlanSummary>(`/api/study-plans/${id}`, { method: "PATCH", body: { status } }),
+    remove: (id: number) => apiFetch<void>(`/api/study-plans/${id}`, { method: "DELETE" }),
   },
   search: (q: string) => apiFetch<SearchResponse>(`/api/search${query({ q })}`),
   tags: () => apiFetch<string[]>("/api/tags"),

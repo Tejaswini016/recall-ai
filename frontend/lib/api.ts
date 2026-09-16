@@ -26,7 +26,7 @@ function defaultMessage(status: number): string {
 }
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PUT" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   /** Multipart upload; takes precedence over body. */
   formData?: FormData;
