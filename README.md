@@ -696,7 +696,7 @@ Then open `https://app.example.com`, register, create a deck, generate cards fro
 
 Captured from the composed stack running on the Groq provider (`AI_PROVIDER=groq`, `openai/gpt-oss-120b`): the cards, the quiz and the explanations shown here were generated from pasted notes at zero cost. `docs/screenshots/README.md` lists the screens and the Playwright command used.
 
-| Dashboard with readiness and today's plan | Deck and card generation |
+| Dashboard (full page: readiness, today's plan, topics, upcoming reviews, mistakes, difficulty, mock exams) | Deck and card generation |
 |---|---|
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Deck](docs/screenshots/deck.png) |
 

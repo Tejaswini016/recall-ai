@@ -8,7 +8,7 @@ README picks them up.
 
 | File | Screen |
 |---|---|
-| `dashboard.png` | `/dashboard` with the readiness estimate, today's plan, weak topics and upcoming reviews |
+| `dashboard.png` | `/dashboard`, full page: readiness estimate, today's plan, weak and strong topics, upcoming reviews, queue, mistakes, difficulty, mock exams, activity |
 | `deck.png` | `/decks/{id}` showing the card list and the Generate cards dialog |
 | `study.png` | `/study/all?topic=...` practice session with the difficulty tier badge |
 | `quiz-results.png` | `/quiz/{quizId}` results with "Review this mistake" on a missed question |

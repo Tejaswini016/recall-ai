@@ -51,9 +51,9 @@ export function DifficultyDistributionCard({
                 <div key={t.tier} className={BAR[t.tier]} style={{ width: `${(t.cards * 100) / data.totalCards}%` }} title={`${difficultyLabel(t.tier)}: ${t.cards}`} />
               ))}
           </div>
-          <ul className="mt-3 grid gap-2 sm:grid-cols-4">
+          <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {data.tiers.map((t) => (
-              <li key={t.tier} className="flex items-center gap-2 text-sm">
+              <li key={t.tier} className="flex items-center gap-2 whitespace-nowrap text-sm">
                 <span className={`h-2.5 w-2.5 rounded-full ${BAR[t.tier]}`} aria-hidden />
                 <span className="font-medium">{difficultyLabel(t.tier)}</span>
                 <span className="text-muted tabular-nums">

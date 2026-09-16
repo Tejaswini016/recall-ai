@@ -4,6 +4,12 @@ import Link from "next/link";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { ErrorState, Skeleton } from "@/components/ui/States";
 import { formatShortDate, pluralize, relativeDay } from "@/lib/format";
+
+const WEEKDAY = new Intl.DateTimeFormat(undefined, { weekday: "short" });
+
+function dayLabel(iso: string): string {
+  return relativeDay(iso) === "today" ? "Today" : WEEKDAY.format(new Date(`${iso}T00:00:00`));
+}
 import type { UpcomingReviews } from "@/types";
 
 /** Cards coming due over the next week as a small bar strip, with the overdue backlog called out. */
@@ -32,10 +38,10 @@ export function UpcomingReviewsCard({ data, loading, error, onRetry }: { data: U
         {data.days.map((d) => (
           <li key={d.date} className="flex flex-1 flex-col items-center gap-1" title={`${formatShortDate(d.date)}: ${pluralize(d.cards, "card")}`}>
             <span className="text-[10px] tabular-nums text-muted">{d.cards}</span>
-            <div className="flex w-full flex-1 items-end">
-              <div className="w-full rounded-t bg-primary/70" style={{ height: `${Math.max(4, (d.cards * 100) / max)}%` }} aria-hidden />
+            <div className="flex h-20 w-full items-end">
+              <div className={d.cards > 0 ? "w-full rounded-t bg-primary/70" : "w-full rounded-t bg-black/10 dark:bg-white/10"} style={{ height: `${d.cards > 0 ? Math.max(8, (d.cards * 100) / max) : 3}%` }} aria-hidden />
             </div>
-            <span className="text-[10px] text-muted">{relativeDay(d.date) === "today" ? "Today" : formatShortDate(d.date).split(" ")[1] ?? formatShortDate(d.date)}</span>
+            <span className="text-[10px] text-muted">{dayLabel(d.date)}</span>
           </li>
         ))}
       </ol>
