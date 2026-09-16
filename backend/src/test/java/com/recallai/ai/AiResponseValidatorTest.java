@@ -142,6 +142,27 @@ class AiResponseValidatorTest {
     }
 
     @Nested
+    class MistakeCard {
+
+        @Test
+        void singleCardIsAccepted() {
+            GeneratedFlashcard card = validator.validateMistakeCard("""
+                    {"card": {"question": "Q", "answer": "A", "explanation": "E", "topic": "T", "tags": ["X"]}}
+                    """);
+            assertThat(card.question()).isEqualTo("Q");
+            assertThat(card.tags()).containsExactly("x");
+        }
+
+        @Test
+        void missingOrBrokenCardIsRejected() {
+            assertThatThrownBy(() -> validator.validateMistakeCard("{\"cards\": []}")).hasMessageContaining("\"card\" is missing");
+            assertThatThrownBy(() -> validator.validateMistakeCard("{\"card\": 3}")).hasMessageContaining("not an object");
+            assertThatThrownBy(() -> validator.validateMistakeCard("{\"card\": {\"question\": \"Q\"}}"))
+                    .hasMessageContaining("card.answer is missing");
+        }
+    }
+
+    @Nested
     @DisplayName("quiz")
     class Quiz {
 

@@ -74,6 +74,29 @@ public class AiGenerationService {
         return new AiGenerationResult<>(attempt.value(), false, attempt.correctiveRetries());
     }
 
+    /**
+     * One corrective card for a mistake. Cached on the question, correct answer and explanation
+     * plus the student's answer, since the card addresses that specific misunderstanding.
+     */
+    public AiGenerationResult<GeneratedFlashcard> generateMistakeCard(MistakeContext mistake) {
+        String material = mistake.question() + "\n" + mistake.correctAnswer() + "\n"
+                + (mistake.explanation() == null ? "" : mistake.explanation());
+        String parameters = "given=" + (mistake.givenAnswer() == null ? "" : mistake.givenAnswer())
+                + ";topic=" + (mistake.topic() == null ? "" : mistake.topic());
+        AiCacheService.CacheKey key = AiCacheService.CacheKey.of(material, parameters, AiOperation.MISTAKE_CARD,
+                properties.effectiveModel(), promptService.promptVersion(AiOperation.MISTAKE_CARD));
+        Optional<List<GeneratedFlashcard>> cached = cacheService.lookup(key, FLASHCARD_LIST);
+        if (cached.isPresent() && !cached.get().isEmpty()) {
+            return new AiGenerationResult<>(cached.get(), true, 0);
+        }
+        AiRetryService.Attempt<GeneratedFlashcard> attempt = retryService.execute(
+                promptService.mistakeCard(mistake), validator::validateMistakeCard);
+        List<GeneratedFlashcard> items = List.of(attempt.value());
+        cacheService.store(key, items);
+        log.info("Generated a corrective flashcard for a mistake");
+        return new AiGenerationResult<>(items, false, attempt.correctiveRetries());
+    }
+
     private void checkMaterial(String material) {
         if (material == null || material.isBlank()) {
             throw new ApiException(ErrorCode.VALIDATION_ERROR, "Study material is empty");

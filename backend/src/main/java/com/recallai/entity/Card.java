@@ -87,6 +87,14 @@ public class Card {
     @Column(name = "avg_response_ms")
     private Integer avgResponseMs;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private CardOrigin origin = CardOrigin.MANUAL;
+
+    /** The mistake this card was built from, when its origin is MISTAKE. */
+    @Column(name = "mistake_id")
+    private Long mistakeId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -124,6 +132,11 @@ public class Card {
         this.intervalDays = intervalDays;
         this.repetitions = repetitions;
         this.dueDate = dueDate;
+    }
+
+    public void markOrigin(CardOrigin origin, Long mistakeId) {
+        this.origin = origin;
+        this.mistakeId = mistakeId;
     }
 
     public AdaptiveDifficultyService.State adaptiveState() {
@@ -200,6 +213,14 @@ public class Card {
 
     public Integer getAvgResponseMs() {
         return avgResponseMs;
+    }
+
+    public CardOrigin getOrigin() {
+        return origin;
+    }
+
+    public Long getMistakeId() {
+        return mistakeId;
     }
 
     public Instant getCreatedAt() {

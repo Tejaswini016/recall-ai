@@ -69,9 +69,13 @@ export interface Card {
   successStreak: number;
   lapseCount: number;
   totalReviews: number;
+  origin: CardOrigin;
+  mistakeId: number | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export type CardOrigin = "MANUAL" | "AI" | "MISTAKE";
 
 export interface CardRequest {
   question: string;
@@ -195,6 +199,45 @@ export interface QuestionResult {
   correct: boolean;
   explanation: string;
   topic: string | null;
+  mistakeId: number | null;
+  mistakeStatus: MistakeStatus | null;
+  mistakeCardId: number | null;
+}
+
+export type MistakeSource = "QUIZ" | "MOCK_EXAM";
+export type MistakeStatus = "OPEN" | "CONVERTED" | "DISMISSED";
+
+export interface Mistake {
+  id: number;
+  source: MistakeSource;
+  status: MistakeStatus;
+  question: string;
+  givenAnswer: string | null;
+  correctAnswer: string;
+  explanation: string | null;
+  topic: string | null;
+  deckId: number | null;
+  deckName: string | null;
+  quizQuestionId: number | null;
+  occurrences: number;
+  cardId: number | null;
+  firstMissedAt: string;
+  lastMissedAt: string;
+  resolvedAt: string | null;
+}
+
+export interface MistakeSummary {
+  open: number;
+  converted: number;
+  dismissed: number;
+  total: number;
+  openByTopic: { topic: string; count: number }[];
+}
+
+export interface MistakeFlashcard {
+  mistake: Mistake;
+  card: Card;
+  aiGenerated: boolean;
 }
 
 export interface QuizAttempt {

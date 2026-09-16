@@ -14,10 +14,22 @@ public class PromptService {
 
     private final FlashcardPromptBuilder flashcardPromptBuilder;
     private final QuizPromptBuilder quizPromptBuilder;
+    private final MistakePromptBuilder mistakePromptBuilder;
 
     public PromptService(FlashcardPromptBuilder flashcardPromptBuilder, QuizPromptBuilder quizPromptBuilder) {
+        this(flashcardPromptBuilder, quizPromptBuilder, new MistakePromptBuilder(new com.fasterxml.jackson.databind.ObjectMapper()));
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public PromptService(FlashcardPromptBuilder flashcardPromptBuilder, QuizPromptBuilder quizPromptBuilder,
+                         MistakePromptBuilder mistakePromptBuilder) {
         this.flashcardPromptBuilder = flashcardPromptBuilder;
         this.quizPromptBuilder = quizPromptBuilder;
+        this.mistakePromptBuilder = mistakePromptBuilder;
+    }
+
+    public AiPrompt mistakeCard(MistakeContext mistake) {
+        return mistakePromptBuilder.build(mistake);
     }
 
     public AiPrompt flashcards(String material, int maxCards) {
@@ -32,6 +44,7 @@ public class PromptService {
         return switch (operation) {
             case FLASHCARDS -> FlashcardPromptBuilder.VERSION;
             case QUIZ -> QuizPromptBuilder.VERSION;
+            case MISTAKE_CARD -> MistakePromptBuilder.VERSION;
         };
     }
 

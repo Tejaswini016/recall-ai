@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { CheckCircle2, RotateCcw, XCircle } from "lucide-react";
+import { ReviewMistakeButton } from "@/components/mistakes/ReviewMistakeButton";
 import { useToast } from "@/components/providers/ToastProvider";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -133,6 +134,11 @@ export default function QuizPage() {
                     </ul>
                     {r.selectedAnswer === null && <p className="mt-2 text-xs text-muted">Skipped.</p>}
                     {!r.correct && <p className="mt-3 rounded-lg bg-background p-3 text-sm text-muted">{r.explanation}</p>}
+                    {!r.correct && r.mistakeId !== null && (
+                      <div className="mt-3">
+                        <ReviewMistakeButton mistakeId={r.mistakeId} status={r.mistakeStatus} cardId={r.mistakeCardId} />
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>

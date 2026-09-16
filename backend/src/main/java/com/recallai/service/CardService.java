@@ -4,6 +4,7 @@ import com.recallai.dto.CardRequest;
 import com.recallai.dto.CardResponse;
 import com.recallai.dto.PageResponse;
 import com.recallai.entity.Card;
+import com.recallai.entity.CardOrigin;
 import com.recallai.entity.Deck;
 import com.recallai.exception.ResourceNotFoundException;
 import com.recallai.repository.CardRepository;
@@ -42,11 +43,31 @@ public class CardService {
     /** Bulk insert used by AI generation; all cards land in one transaction or none do. */
     @Transactional
     public List<CardResponse> createAll(Long userId, Long deckId, List<CardRequest> requests) {
+        return createAll(userId, deckId, requests, CardOrigin.MANUAL);
+    }
+
+    @Transactional
+    public List<CardResponse> createAll(Long userId, Long deckId, List<CardRequest> requests, CardOrigin origin) {
         Deck deck = deckService.getOwnedDeck(userId, deckId);
-        List<Card> cards = requests.stream().map(request -> newCard(deck, request)).toList();
+        List<Card> cards = requests.stream().map(request -> {
+            Card card = newCard(deck, request);
+            card.markOrigin(origin, null);
+            return card;
+        }).toList();
         List<Card> saved = cardRepository.saveAll(cards);
-        log.info("User {} added {} cards to deck {}", userId, saved.size(), deckId);
+        log.info("User {} added {} {} cards to deck {}", userId, saved.size(), origin, deckId);
         return saved.stream().map(CardResponse::from).toList();
+    }
+
+    /** One card with a recorded origin; returns the entity for callers that link to it. */
+    @Transactional
+    public Card createCard(Long userId, Long deckId, CardRequest request, CardOrigin origin, Long mistakeId) {
+        Deck deck = deckService.getOwnedDeck(userId, deckId);
+        Card card = newCard(deck, request);
+        card.markOrigin(origin, mistakeId);
+        card = cardRepository.save(card);
+        log.info("User {} added {} card {} to deck {}", userId, origin, card.getId(), deckId);
+        return card;
     }
 
     @Transactional

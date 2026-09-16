@@ -11,6 +11,7 @@ import { StatTile } from "@/components/ui/StatTile";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/States";
 import { ActivityChart } from "@/components/analytics/Charts";
 import { WeakTopicsPanel } from "@/components/topics/WeakTopicsPanel";
+import { ReviewMistakeButton } from "@/components/mistakes/ReviewMistakeButton";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { api } from "@/lib/endpoints";
 import { formatDateTime, greeting, pluralize } from "@/lib/format";
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const summary = useApiQuery(() => api.analytics.summary());
   const queue = useApiQuery(() => api.reviews.due({ limit: 5 }));
   const insights = useApiQuery(() => api.analytics.topicInsights());
+  const mistakes = useApiQuery(() => api.mistakes.recent());
   const history = useApiQuery(() => api.reviews.history({ size: 6 }));
   const activity = useApiQuery(() => api.analytics.activity(14));
 
@@ -155,6 +157,36 @@ export default function DashboardPage() {
             <ErrorState message={activity.error} onRetry={activity.refetch} />
           ) : (
             <ActivityChart data={activity.data ?? []} height={220} />
+          )}
+        </Card>
+
+        <Card>
+          <div className="mb-4 flex items-center justify-between">
+            <CardTitle>Mistakes to review</CardTitle>
+            <Link href="/mistakes" className="text-sm font-medium text-primary hover:underline">
+              All mistakes
+            </Link>
+          </div>
+          {mistakes.loading && !mistakes.data ? (
+            <Skeleton className="h-32" />
+          ) : mistakes.error ? (
+            <ErrorState message={mistakes.error} onRetry={mistakes.refetch} />
+          ) : mistakes.data && mistakes.data.length > 0 ? (
+            <ul className="divide-y divide-border">
+              {mistakes.data.map((m) => (
+                <li key={m.id} className="py-2.5">
+                  <p className="truncate text-sm font-medium">{m.question}</p>
+                  <p className="text-xs text-muted">
+                    {m.topic ? `${m.topic} · ` : ""}you answered {m.givenAnswer ?? "nothing"} · correct: {m.correctAnswer}
+                  </p>
+                  <div className="mt-1.5">
+                    <ReviewMistakeButton mistakeId={m.id} status={m.status} cardId={m.cardId} onConverted={() => mistakes.refetch()} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted">No open mistakes. Quiz answers you get wrong will show up here.</p>
           )}
         </Card>
 

@@ -8,6 +8,7 @@ import com.recallai.dto.QuizAttemptSummaryResponse;
 import com.recallai.dto.QuizQuestionResponse;
 import com.recallai.dto.QuizResponse;
 import com.recallai.dto.QuizSummaryResponse;
+import com.recallai.entity.Mistake;
 import com.recallai.entity.Quiz;
 import com.recallai.entity.QuizAttempt;
 import com.recallai.entity.QuizAttemptAnswer;
@@ -37,14 +38,17 @@ public class QuizService {
     private final QuizAttemptRepository attemptRepository;
     private final UserRepository userRepository;
     private final DeckService deckService;
+    private final MistakeService mistakeService;
     private final Clock clock;
 
     public QuizService(QuizRepository quizRepository, QuizAttemptRepository attemptRepository,
-                       UserRepository userRepository, DeckService deckService, Clock clock) {
+                       UserRepository userRepository, DeckService deckService, MistakeService mistakeService,
+                       Clock clock) {
         this.quizRepository = quizRepository;
         this.attemptRepository = attemptRepository;
         this.userRepository = userRepository;
         this.deckService = deckService;
+        this.mistakeService = mistakeService;
         this.clock = clock;
     }
 
@@ -101,8 +105,9 @@ public class QuizService {
             attempt.addAnswer(graded.question(), graded.selectedAnswer(), graded.correct());
         }
         attempt = attemptRepository.save(attempt);
+        mistakeService.recordQuizMistakes(userId, attempt);
         log.info("User {} completed quiz {} scoring {}/{}", userId, quizId, result.score(), result.total());
-        return toAttemptResponse(attempt);
+        return toAttemptResponse(attempt, mistakesFor(userId, attempt));
     }
 
     @Transactional(readOnly = true)
@@ -115,7 +120,7 @@ public class QuizService {
     @Transactional(readOnly = true)
     public QuizAttemptResponse getAttempt(Long userId, Long quizId, Long attemptId) {
         return attemptRepository.findDetail(attemptId, quizId, userId)
-                .map(QuizService::toAttemptResponse)
+                .map(attempt -> toAttemptResponse(attempt, mistakesFor(userId, attempt)))
                 .orElseThrow(() -> new ResourceNotFoundException("Quiz attempt", attemptId));
     }
 
@@ -142,9 +147,14 @@ public class QuizService {
                 questions.size(), attemptCount, bestPercent, quiz.getCreatedAt(), questions);
     }
 
-    private static QuizAttemptResponse toAttemptResponse(QuizAttempt attempt) {
+    private Map<Long, Mistake> mistakesFor(Long userId, QuizAttempt attempt) {
+        return mistakeService.forQuizQuestions(userId,
+                attempt.getAnswers().stream().map(a -> a.getQuestion().getId()).toList());
+    }
+
+    private static QuizAttemptResponse toAttemptResponse(QuizAttempt attempt, Map<Long, Mistake> mistakes) {
         List<QuizAttemptResponse.QuestionResult> results = attempt.getAnswers().stream()
-                .map(QuizService::toQuestionResult)
+                .map(answer -> toQuestionResult(answer, mistakes.get(answer.getQuestion().getId())))
                 .toList();
         int correct = attempt.getScore();
         return new QuizAttemptResponse(attempt.getId(), attempt.getQuiz().getId(), attempt.getQuiz().getTitle(),
@@ -152,7 +162,7 @@ public class QuizService {
                 attempt.getTotalQuestions() - correct, attempt.getCompletedAt(), attempt.getDurationSeconds(), results);
     }
 
-    private static QuizAttemptResponse.QuestionResult toQuestionResult(QuizAttemptAnswer answer) {
+    private static QuizAttemptResponse.QuestionResult toQuestionResult(QuizAttemptAnswer answer, Mistake mistake) {
         return new QuizAttemptResponse.QuestionResult(
                 answer.getQuestion().getId(),
                 answer.getQuestion().getQuestion(),
@@ -161,6 +171,9 @@ public class QuizService {
                 answer.getQuestion().getCorrectAnswer(),
                 answer.isCorrect(),
                 answer.getQuestion().getExplanation(),
-                answer.getQuestion().getTopic());
+                answer.getQuestion().getTopic(),
+                mistake == null ? null : mistake.getId(),
+                mistake == null ? null : mistake.getStatus(),
+                mistake == null ? null : mistake.getCardId());
     }
 }

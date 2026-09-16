@@ -8,6 +8,7 @@ import com.recallai.config.MaterialProperties;
 import com.recallai.dto.CardRequest;
 import com.recallai.dto.CardResponse;
 import com.recallai.dto.GenerateCardsResponse;
+import com.recallai.entity.CardOrigin;
 import com.recallai.exception.ApiException;
 import com.recallai.exception.ErrorCode;
 import java.util.ArrayList;
@@ -95,7 +96,7 @@ public class FlashcardGenerationService {
         List<GeneratedFlashcard> selected = merged.size() > count ? merged.subList(0, count) : merged;
 
         List<CardResponse> saved = cardService.createAll(userId, deckId,
-                selected.stream().map(FlashcardGenerationService::toCardRequest).toList());
+                selected.stream().map(FlashcardGenerationService::toCardRequest).toList(), CardOrigin.AI);
         log.info("User {} generated {} cards into deck {} from {} chunks ({} cached, {} retries)",
                 userId, saved.size(), deckId, chunks.size(), cachedChunks, retries);
         return new GenerateCardsResponse(deckId, saved.size(), chunks.size(), cachedChunks, retries, saved);

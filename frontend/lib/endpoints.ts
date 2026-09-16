@@ -12,6 +12,11 @@ import type {
   DifficultyDistribution,
   GenerateCardsResponse,
   MasteryPoint,
+  Mistake,
+  MistakeFlashcard,
+  MistakeSource,
+  MistakeStatus,
+  MistakeSummary,
   PageResponse,
   Quiz,
   QuizAttempt,
@@ -90,6 +95,18 @@ export const api = {
       apiFetch<QuizAttempt>(`/api/quizzes/${id}/attempts`, { method: "POST", body: { answers, durationSeconds } }),
     attempts: (id: number) => apiFetch<QuizAttemptSummary[]>(`/api/quizzes/${id}/attempts`),
     attempt: (id: number, attemptId: number) => apiFetch<QuizAttempt>(`/api/quizzes/${id}/attempts/${attemptId}`),
+  },
+  mistakes: {
+    list: (params: { status?: MistakeStatus; source?: MistakeSource; topic?: string; page?: number; size?: number } = {}) =>
+      apiFetch<PageResponse<Mistake>>(`/api/mistakes${query(params)}`),
+    summary: () => apiFetch<MistakeSummary>("/api/mistakes/summary"),
+    recent: () => apiFetch<Mistake[]>("/api/mistakes/recent"),
+    get: (id: number) => apiFetch<Mistake>(`/api/mistakes/${id}`),
+    toFlashcard: (id: number, deckId?: number) =>
+      apiFetch<MistakeFlashcard>(`/api/mistakes/${id}/flashcard`, { method: "POST", body: { deckId } }),
+    dismiss: (id: number) => apiFetch<Mistake>(`/api/mistakes/${id}/dismiss`, { method: "POST" }),
+    reopen: (id: number) => apiFetch<Mistake>(`/api/mistakes/${id}/reopen`, { method: "POST" }),
+    remove: (id: number) => apiFetch<void>(`/api/mistakes/${id}`, { method: "DELETE" }),
   },
   analytics: {
     summary: () => apiFetch<AnalyticsSummary>("/api/analytics/summary"),

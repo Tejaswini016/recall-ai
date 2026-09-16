@@ -1,5 +1,6 @@
 package com.recallai.dto;
 
+import com.recallai.entity.MistakeStatus;
 import java.time.Instant;
 import java.util.List;
 
@@ -25,6 +26,9 @@ public record QuizAttemptResponse(
             int correctAnswer,
             boolean correct,
             String explanation,
-            String topic) {
+            String topic,
+            Long mistakeId,
+            MistakeStatus mistakeStatus,
+            Long mistakeCardId) {
     }
 }

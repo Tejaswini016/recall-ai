@@ -1,6 +1,7 @@
 package com.recallai.dto;
 
 import com.recallai.entity.Card;
+import com.recallai.entity.CardOrigin;
 import com.recallai.scheduler.DifficultyTier;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -23,6 +24,8 @@ public record CardResponse(
         int successStreak,
         int lapseCount,
         int totalReviews,
+        CardOrigin origin,
+        Long mistakeId,
         Instant createdAt,
         Instant updatedAt) {
 
@@ -43,6 +46,8 @@ public record CardResponse(
                 card.getSuccessStreak(),
                 card.getLapseCount(),
                 card.getTotalReviews(),
+                card.getOrigin(),
+                card.getMistakeId(),
                 card.getCreatedAt(),
                 card.getUpdatedAt());
     }

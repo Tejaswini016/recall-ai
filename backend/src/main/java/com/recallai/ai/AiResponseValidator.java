@@ -41,32 +41,55 @@ public class AiResponseValidator {
         List<GeneratedFlashcard> result = new ArrayList<>();
         Set<String> seenQuestions = new HashSet<>();
         for (int i = 0; i < cardLimit; i++) {
-            JsonNode node = cards.get(i);
-            String where = "cards[" + i + "]";
-            if (!node.isObject()) {
-                problems.add(where + " is not an object");
+            GeneratedFlashcard card = parseCard(cards.get(i), "cards[" + i + "]", problems);
+            if (card == null) {
                 continue;
             }
-            String question = requiredText(node, "question", where, FlashcardPromptBuilder.MAX_QUESTION_CHARS, problems);
-            String answer = requiredText(node, "answer", where, FlashcardPromptBuilder.MAX_ANSWER_CHARS, problems);
-            String explanation = optionalText(node, "explanation", where,
-                    FlashcardPromptBuilder.MAX_EXPLANATION_CHARS, problems);
-            String topic = optionalText(node, "topic", where, FlashcardPromptBuilder.MAX_TOPIC_CHARS, problems);
-            List<String> tags = optionalTags(node, where, problems);
-            if (question == null || answer == null) {
-                continue;
-            }
-            if (!seenQuestions.add(question.toLowerCase(Locale.ROOT))) {
+            if (!seenQuestions.add(card.question().toLowerCase(Locale.ROOT))) {
                 // Duplicates are dropped rather than rejected; the remaining cards are still valid.
                 continue;
             }
-            result.add(new GeneratedFlashcard(question, answer, explanation, topic, tags));
+            result.add(card);
         }
         failIfAny(problems);
         if (result.isEmpty()) {
             throw invalid("no usable cards remained after validation");
         }
         return List.copyOf(result);
+    }
+
+    /** The single corrective card a mistake becomes: {@code {"card": {...}}}. */
+    public GeneratedFlashcard validateMistakeCard(String rawText) {
+        JsonNode root = parseObject(rawText);
+        JsonNode node = root.get("card");
+        if (node == null || node.isNull()) {
+            throw invalid("\"card\" is missing");
+        }
+        List<String> problems = new ArrayList<>();
+        GeneratedFlashcard card = parseCard(node, "card", problems);
+        failIfAny(problems);
+        if (card == null) {
+            throw invalid("no usable card in the response");
+        }
+        return card;
+    }
+
+    /** One card object; records every problem and returns null when the card is unusable. */
+    private static GeneratedFlashcard parseCard(JsonNode node, String where, List<String> problems) {
+        if (!node.isObject()) {
+            problems.add(where + " is not an object");
+            return null;
+        }
+        String question = requiredText(node, "question", where, FlashcardPromptBuilder.MAX_QUESTION_CHARS, problems);
+        String answer = requiredText(node, "answer", where, FlashcardPromptBuilder.MAX_ANSWER_CHARS, problems);
+        String explanation = optionalText(node, "explanation", where,
+                FlashcardPromptBuilder.MAX_EXPLANATION_CHARS, problems);
+        String topic = optionalText(node, "topic", where, FlashcardPromptBuilder.MAX_TOPIC_CHARS, problems);
+        List<String> tags = optionalTags(node, where, problems);
+        if (question == null || answer == null) {
+            return null;
+        }
+        return new GeneratedFlashcard(question, answer, explanation, topic, tags);
     }
 
     public List<GeneratedQuizQuestion> validateQuiz(String rawText, int maxQuestions) {
