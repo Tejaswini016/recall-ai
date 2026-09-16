@@ -13,19 +13,20 @@
 9. [AI architecture](#ai-architecture) (prompt engineering, structured output, failure handling, caching, chunking, cost, hallucination)
 10. [Quizzes](#quizzes)
 11. [Weak topics and analytics](#weak-topics-and-analytics)
-12. [Frontend](#frontend)
-13. [Security](#security-and-authentication) (rate limiting, logging, production configuration, error format)
-14. [API documentation](#api)
-15. [Local setup](#local-setup-without-docker)
-16. [Docker setup](#docker-setup)
-17. [Environment variables](#environment-variables)
-18. [Testing](#testing)
-19. [Continuous integration](#continuous-integration)
-20. [AWS deployment](#aws-deployment)
-21. [Screenshots](#screenshots)
-22. [Future improvements](#future-improvements)
-23. [Interview talking points](#interview-talking-points)
-24. [Development history](#development-history)
+12. [Adaptive study companion](#adaptive-study-companion) (topic insight, adaptive difficulty, mistakes, study planner, mock exams, readiness)
+13. [Frontend](#frontend)
+14. [Security](#security-and-authentication) (rate limiting, logging, production configuration, error format)
+15. [API documentation](#api)
+16. [Local setup](#local-setup-without-docker)
+17. [Docker setup](#docker-setup)
+18. [Environment variables](#environment-variables)
+19. [Testing](#testing)
+20. [Continuous integration](#continuous-integration)
+21. [AWS deployment](#aws-deployment)
+22. [Screenshots](#screenshots)
+23. [Future improvements](#future-improvements)
+24. [Interview talking points](#interview-talking-points)
+25. [Development history](#development-history)
 
 ## Project overview
 
@@ -66,7 +67,13 @@ RecallAI removes the two frictions. A language model writes the questions from t
 - SM-2 scheduling per card; a daily queue that contains only cards that are actually due, overdue and weakest first.
 - Generate multiple-choice quizzes from a deck or from notes; take them one question at a time; get explanations for misses; retry.
 - Weak-topic detection from review history, with configurable thresholds and no model involved.
-- Dashboard with due, reviewed, streak and mastered tiles; analytics with activity, retention, mastery and topic charts.
+- **Topic insight** across flashcard reviews, quiz answers and mock exams: accuracy, attempts, mistakes, last studied, a category (critical, weak, good, strong) and a recommended action, with one-click practice (targeted flashcard session or generated quiz).
+- **Adaptive difficulty**: every card carries an easy/medium/hard/expert tier driven by lapses, confident streaks and response time; hard and expert cards come back sooner than plain SM-2 would schedule them.
+- **Mistake → flashcard → revision**: wrong quiz and exam answers become mistakes; "Review this mistake" generates an explanatory card (validated, with a deterministic fallback) that SM-2 schedules from today.
+- **AI study planner**: exam date, topics, level and available time become a dated plan of due-card reviews, learning and practice blocks weighted towards weak topics, mistake reviews, weekly mock exams and a final revision day; the model writes the summary and tips; regenerate rebalances after new results.
+- **Mock exams**: timed exams generated from your cards with multiple-choice, true/false and short-answer questions, graded locally, with per-topic results and mistakes captured.
+- **Estimated exam readiness** on the dashboard, computed from accuracy, retention, topic coverage, revision consistency and mock exam scores, with every component and weight shown.
+- Dashboard with readiness, today's plan, weak and strong topics, upcoming reviews, mistakes, difficulty progress, mock exam performance, streak and retention; analytics with activity, retention, mastery and topic charts.
 - Study streaks computed from real calendar days.
 - Full-text search across decks and cards in PostgreSQL.
 - Content-hash caching of AI responses, corrective retries on invalid output, per-user rate limiting on AI endpoints.
@@ -161,9 +168,14 @@ Flyway owns the schema (`backend/src/main/resources/db/migration`). Hibernate ru
 | `quizzes`, `quiz_questions` | AI-generated multiple-choice quizzes |
 | `quiz_attempts` | Scores and duration per attempt |
 | `quiz_attempt_answers` | Selected answer and correctness per question per attempt |
-| `ai_cache` | Validated Claude responses keyed by `(content_hash, operation_type, model, prompt_version)` |
+| `mistakes` | Questions answered wrongly in quizzes or mock exams: given and correct answer, explanation, topic, occurrences, status (open, converted, dismissed) and the card they became |
+| `study_plans`, `study_plan_tasks` | Exam plans (name, date, topics, level, minutes per day, preferred weekdays, model-written summary and advice) and their dated tasks with status |
+| `mock_exams`, `mock_exam_questions` | Timed exams and their mixed-type questions; each question row also holds the answer given and whether it was correct (one attempt per exam) |
+| `ai_cache` | Validated model responses keyed by `(content_hash, operation_type, model, prompt_version)` |
 
-Check constraints enforce SM-2 invariants at the database level (ease factor ≥ 1.30, non-negative interval and repetitions, quality score 0–5, correct answer index 0–3).
+Migrations V4–V8 (the adaptive upgrade) add `quiz_questions.topic`; the card difficulty tier and counters (`difficulty`, `success_streak`, `lapse_count`, `total_reviews`, `avg_response_ms`, backfilled from history) plus `review_history.response_ms` and `difficulty_after`; card `origin` (manual, ai, mistake) and `mistake_id`; and the three table pairs above. Existing databases upgrade in place.
+
+Check constraints enforce SM-2 invariants at the database level (ease factor ≥ 1.30, non-negative interval and repetitions, quality score 0–5, correct answer index 0–3), plus the enumerations and ranges of the new tables.
 
 ## SM-2 spaced repetition
 
@@ -312,22 +324,43 @@ Everything under `/api/analytics` is computed by SQL aggregates over `review_his
 
 **Charts**: `GET /api/analytics/activity?days=30` returns one point per calendar day (gaps filled with zeros) with reviews, successful reviews, average quality and retention percent; `GET /api/analytics/mastery?days=90` returns the cumulative number of cards that had reached the mastered interval by each day, based on the first review that took each card there.
 
+## Adaptive study companion
+
+Five features build on the pieces above. A rule of the design: **numbers, categories and schedules are computed from the student's own results; the model only writes text (cards, questions, summaries) and everything it writes is validated before it is stored.** Every model-backed step also has a path that works when the model is unavailable.
+
+**Topic insight** (`GET /api/analytics/topic-insights`). Flashcard reviews (rated 3 or higher count as successes), quiz answers and mock exam answers are aggregated per topic in SQL (`review_history` joined to `cards`, `quiz_attempt_answers` joined to `quiz_questions`, which now carry a `topic` the quiz prompt asks for). Cards or questions without a topic count under their deck's name. `TopicCategorizer` labels each topic from its combined accuracy: fewer than three attempts is *unrated*; 85%+ is *strong*, 70%+ *good*, 50%+ *weak*, below that *critical*; each category carries a recommended action. `GET /api/reviews/practice?topic=` returns every card on a topic (hardest tier first) for a practice session graded through the normal SM-2 endpoint, and `POST /api/ai/quiz/topic` builds a five-question quiz from the student's own cards on that topic.
+
+**Adaptive difficulty** (`AdaptiveDifficultyService`, pure). Each card has a tier: a lapse (quality below 3) moves it one tier harder, a blank (quality 0) two; three consecutive successes rated 4 or 5 that were not unusually slow move it one tier easier. Response time is the time from seeing the question to revealing the answer, sent by the study page as `responseMs`; a review slower than twice the card's running average does not count towards promotion. The tier then scales the interval SM-2 produced, but only from the third repetition on, so SM-2's 1-day and 6-day seeds and its lapse handling are untouched: easy and medium cards follow plain SM-2 (whose ease factor already lengthens intervals), hard cards get 85% of the interval and expert cards 70%. The review response reports the tier, whether it changed and the unscaled SM-2 interval; `GET /api/analytics/difficulty` gives the distribution.
+
+**Mistake → flashcard → revision** (`/api/mistakes`). Submitting a quiz or exam records every wrong or skipped answer as a mistake (question, the answer given, the correct answer, explanation, topic); missing the same question again bumps its occurrence count. `POST /api/mistakes/{id}/flashcard` asks the model for one corrective card (operation `MISTAKE_CARD`: a recall question about the underlying concept, the precise answer, an explanation that addresses the misconception), validates it like any flashcard, and saves it with origin `MISTAKE`, tagged `mistake`, due today, so it enters the SM-2 queue immediately. If the model is unavailable or returns something invalid after the corrective retry, the card is built deterministically from the stored question, correct answer and explanation, so the flow never fails. Mistakes can be dismissed (they reopen when missed again) or deleted.
+
+**AI study planner** (`/api/study-plans`). A plan takes the exam name and date, topics, a self-assessed level, minutes per study day and preferred weekdays. `StudyPlanAllocator` (pure, deterministic) turns that into dated tasks: every study day starts with a due-card review block and, every other day while mistakes are open, a mistake-review block; the rest goes to one or two topics chosen by a weighted fair share (critical 4, weak 3, unknown 3/2/1.5 by level, good 1.5, strong 1) where a topic's first block is learning and later blocks alternate practice quizzes and learning (topics already good or strong start with practice); the last study day of each week ends with a mock exam and the final day is a revision of the weakest topics. The model (operation `STUDY_PLAN`) is then shown only aggregate numbers and writes a summary and one tip per topic, validated (topics outside the plan are dropped); without a model the plan gets a computed summary. Tasks are checked off, a plan completes when nothing is pending, and **regenerate** rebuilds the pending future tasks from fresh topic insight while keeping completed work, so the plan adapts as results change.
+
+**Mock exams** (`/api/mock-exams`). An exam is generated from the student's cards (one topic, one deck, or the most recent cards) at a chosen difficulty with a mix of multiple-choice, true/false and short-answer questions (operation `MOCK_EXAM`; the validator checks each type's shape). The clock starts on creation; `GET /api/mock-exams/{id}` returns questions without answers and the remaining seconds. Submission is graded locally: option index for choice questions, and `ShortAnswerGrader` for short answers (normalised exact match against the model answer or its accepted alternatives, containment of all key words without being much longer, numeric equality). Late submissions are graded but flagged. Results give score, accuracy, time, per-topic breakdown with strong (70%+) and weak topics, every question with its explanation, and links to the mistakes that were recorded. History and stats feed the dashboard and the readiness estimate.
+
+**Estimated exam readiness** (`GET /api/analytics/readiness`). `ReadinessCalculator` combines five components, each 0–100: accuracy over all reviews and answers (weight 30), 30-day retention (25), topic coverage, the share of topics rated good or strong with unrated topics counting half (20), revision consistency, days studied in the last week minus an overdue-backlog penalty (15), and the average mock exam score (10). A component without evidence drops out and its weight is shared among the rest, so nobody is penalised for a feature they have not used. The response carries every component's score, weight and explanation, a confidence level from the amount of evidence, a recommendation naming the weakest component, and `estimate: true`; the dashboard labels it as an estimate and says it is not a prediction of a grade.
+
+**Rate limiting.** Handlers that may call the model outside `/api/ai` (mistake flashcards, plan creation and regeneration, exam creation) are marked `@AiRateLimited` and count against the same per-user hourly limit.
+
 ## Frontend
 
-A Next.js 16 App Router application in `frontend/`, written as a client-rendered SPA over the REST API (the backend is the only place that talks to Claude or the database).
+A Next.js 16 App Router application in `frontend/`, written as a client-rendered SPA over the REST API (the backend is the only place that talks to the model or the database).
 
 | Route | What it does |
 |---|---|
 | `/login`, `/register` | Auth forms with field-level errors from the API; on success the JWT is stored in a same-site cookie |
-| `/dashboard` | Time-of-day greeting, Due / Reviewed / Streak / Mastered tiles, "Start review" CTA, today's queue, weak topics, 14-day activity chart, recent activity |
+| `/dashboard` | Greeting and "Start review"; Due / Retention / Streak / Mastered tiles; estimated exam readiness with every component; today's plan with check-offs; weak topics with Practice, strong topics, upcoming reviews; today's queue; mistakes to review; adaptive difficulty progress; mock exam performance; 14-day activity chart; recent activity |
 | `/decks` | Searchable, tag-filtered, paginated deck grid with progress bars; create deck modal |
 | `/decks/[id]` | Deck header with counts and progress; Study, Generate cards (paste or drag-and-drop TXT/PDF), Generate quiz, Edit, Delete; tabs for cards (search, add, edit, delete) and quizzes |
-| `/study/[deckId]` (`all` for every deck) | One card at a time: question, reveal, answer and explanation, six SM-2 rating buttons, progress bar, cards remaining, session summary |
-| `/quiz/[quizId]` | One question at a time with four options, then a scored results screen with correct/incorrect markers and explanations for misses, retry |
-| `/analytics` | Recall, retention, mastered and streak tiles; review activity, retention, mastery-over-time and topic-performance charts (Recharts); full topic table with weak flags |
+| `/study/[deckId]` (`all` for every deck; `?topic=` for a practice session) | One card at a time: question, reveal, answer and explanation, six SM-2 rating buttons, difficulty tier, progress bar, cards remaining, session summary; time-to-reveal is sent with each rating and tier changes are announced |
+| `/quiz/[quizId]` | One question at a time with four options, then a scored results screen with correct/incorrect markers, explanations and "Review this mistake" for misses, retry |
+| `/plan`, `/plan/new` | Create a plan (exam, date, topics with suggestions from your results, level, minutes, weekdays); Today, This week, Progress and Completed tabs; check off, skip, regenerate, complete |
+| `/exams`, `/exams/[id]`, `/exams/[id]/results` | New exam form (topic, deck or all cards; difficulty; count; minutes; types) and history; timed exam with countdown, navigator, keyboard shortcuts, auto-submit at zero; results with accuracy, time, strong and weak topics, explanations and mistake review |
+| `/mistakes` | Open, converted and dismissed mistakes with the answer given versus the correct one, occurrences and source; Review this mistake, dismiss, reopen |
+| `/analytics` | Recall, retention, mastered and streak tiles; review activity, retention, mastery-over-time and topic-performance charts (Recharts); every topic with category, accuracy, attempts, mistakes, last studied and action; difficulty tier distribution |
 | `/settings` | Account details, keyboard shortcut reference, how scheduling works, sign out |
 
-**Keyboard shortcuts** in the study session: `Space` or `Enter` reveals the answer, `0`–`5` rate the card (`1` Again, `2` Hard, `3` Good, `4` Easy, `5` Excellent, `0` Blank). In quizzes `1`–`4` pick an option and `Enter` continues.
+**Keyboard shortcuts** in the study session: `Space` or `Enter` reveals the answer, `0`–`5` rate the card (`1` Again, `2` Hard, `3` Good, `4` Easy, `5` Excellent, `0` Blank). In quizzes `1`–`4` pick an option and `Enter` continues. In mock exams `1`–`4` pick an option and the arrow keys move between questions.
 
 **How it is built**
 
@@ -338,7 +371,7 @@ A Next.js 16 App Router application in `frontend/`, written as a client-rendered
 - Tailwind 4 theme tokens with a dark-mode palette; chart colours follow a validated categorical palette with a reserved status colour for weak topics.
 - Responsive from phone widths up: the sidebar collapses to a menu, header actions wrap under the title, rating buttons reflow to two rows.
 
-**Tests**: Vitest with Testing Library covers the API client (auth header, error mapping, 401 handling, network failures, 204s), the format helpers and the rating bar. Run `npm test`.
+**Tests**: Vitest with Testing Library covers the API client (auth header, error mapping, 401 handling, network failures, 204s), the format helpers, the rating bar, the topic and difficulty badges and the exam labels. Run `npm test`.
 
 ## Security and authentication
 
@@ -421,12 +454,15 @@ Interactive documentation is served at `/swagger-ui.html` (OpenAPI JSON at `/v3/
 | PUT | `/api/cards/{id}` | Bearer | Update card content (scheduling fields are read-only here) |
 | DELETE | `/api/cards/{id}` | Bearer | Delete card |
 | GET | `/api/reviews/due` | Bearer | Due queue (`deckId`, `limit`), overdue and weakest first |
-| POST | `/api/reviews/{cardId}` | Bearer | Grade a card 0–5; returns the new SM-2 schedule and cards remaining |
+| GET | `/api/reviews/practice` | Bearer | Every card on a topic for practice (`topic`, `limit`), hardest tier first |
+| GET | `/api/reviews/upcoming` | Bearer | Cards due per day for the next `days` plus the overdue backlog |
+| POST | `/api/reviews/{cardId}` | Bearer | Grade a card 0–5 (optional `responseMs`); returns the SM-2 schedule, cards remaining and the difficulty tier |
 | GET | `/api/reviews/streak` | Bearer | Current streak, longest streak, last active day, reviews today |
 | GET | `/api/reviews/history` | Bearer | Paginated review history |
 | POST | `/api/ai/flashcards` | Bearer | Generate cards from pasted text (`deckId`, `text`, optional `count`) |
 | POST | `/api/ai/flashcards/upload` | Bearer | Generate cards from a `.txt`/`.pdf` upload (multipart `file`, `deckId`, optional `count`) |
 | POST | `/api/ai/quiz` | Bearer | Generate a quiz from a deck's cards or supplied `text` (`deckId`, optional `title`, `count`) |
+| POST | `/api/ai/quiz/topic` | Bearer | Generate a practice quiz from your cards on one topic (`topic`, optional `count`) |
 | GET | `/api/quizzes` | Bearer | List quizzes (`deckId`, paging) with question and attempt counts and best score |
 | GET | `/api/quizzes/{id}` | Bearer | Quiz to take; answers withheld |
 | DELETE | `/api/quizzes/{id}` | Bearer | Delete quiz and attempts |
@@ -438,6 +474,26 @@ Interactive documentation is served at `/swagger-ui.html` (OpenAPI JSON at `/v3/
 | GET | `/api/analytics/mastery` | Bearer | Cumulative cards mastered per day (`days`) |
 | GET | `/api/analytics/topics` | Bearer | Per-topic performance, weakest first (`deckId`) |
 | GET | `/api/analytics/weak-topics` | Bearer | Only topics flagged weak (`deckId`) |
+| GET | `/api/analytics/topic-insights` | Bearer | Combined topic accuracy, attempts, mistakes, category and action (`deckId`, `weakOnly`) |
+| GET | `/api/analytics/difficulty` | Bearer | Cards per adaptive difficulty tier |
+| GET | `/api/analytics/readiness` | Bearer | Estimated exam readiness with components, weights, confidence and a recommendation |
+| GET | `/api/mistakes` | Bearer | Mistakes (`status`, `source`, `topic`, paging) |
+| GET | `/api/mistakes/summary`, `/api/mistakes/recent` | Bearer | Counts by status and most-missed topics; five most recent open mistakes |
+| POST | `/api/mistakes/{id}/flashcard` | Bearer | Turn a mistake into an explanatory flashcard due today (optional `deckId`) |
+| POST | `/api/mistakes/{id}/dismiss`, `/reopen` | Bearer | Set a mistake aside or bring it back |
+| DELETE | `/api/mistakes/{id}` | Bearer | Delete a mistake |
+| POST | `/api/study-plans` | Bearer | Create a plan (`examName`, `examDate`, `topics`, `knowledgeLevel`, `minutesPerDay`, `preferredDays`) |
+| GET | `/api/study-plans`, `/api/study-plans/{id}`, `/api/study-plans/today` | Bearer | Plans with progress; one plan with every task; today's tasks across active plans plus carried-over ones |
+| POST | `/api/study-plans/{id}/regenerate` | Bearer | Rebuild pending tasks from fresh results, keeping completed work |
+| PATCH | `/api/study-plans/{id}/tasks/{taskId}` | Bearer | Mark a task done, skipped or pending |
+| PATCH | `/api/study-plans/{id}` | Bearer | Set a plan active, completed or archived |
+| DELETE | `/api/study-plans/{id}` | Bearer | Delete a plan |
+| POST | `/api/mock-exams` | Bearer | Generate and start an exam (`topic` or `deckId` or neither, `difficulty`, `questionCount`, `durationMinutes`, `questionTypes`) |
+| GET | `/api/mock-exams`, `/api/mock-exams/stats` | Bearer | Exam history; average, best and latest scores |
+| GET | `/api/mock-exams/{id}` | Bearer | The exam to take: questions without answers, remaining seconds |
+| POST | `/api/mock-exams/{id}/submit` | Bearer | Submit answers once; graded locally, mistakes recorded |
+| GET | `/api/mock-exams/{id}/results` | Bearer | Score, time, per-topic breakdown, every question with its explanation |
+| DELETE | `/api/mock-exams/{id}` | Bearer | Delete an exam |
 | GET | `/api/ai/status` | Bearer | Whether generation is available and whether demo mode is on |
 | GET | `/api/search?q=` | Bearer | Top decks and cards matching a query |
 | GET | `/api/tags` | Bearer | All tags the user has used |
@@ -529,12 +585,14 @@ cd frontend && npm run lint && npm test && npm run build
 |---|---|---|
 | SM-2 scheduler | Every quality 0–5, ease bounds, interval ladder, lapses, due dates, determinism | 35 pure unit tests, parameterized |
 | Streaks, weak topics, quiz scoring, tag normalization, chunking, hashing | Business rules in isolation | Unit tests with fixed clocks |
+| Adaptive difficulty, topic categories, study-plan allocation, short-answer grading, readiness | Tier moves and the interval multiplier; category thresholds; budgets, weights, mock and revision days; normalisation and containment; component weights and redistribution | Pure unit tests |
+| Adaptive flows end to end | Topic insight from reviews and quizzes; practice queue and topic quiz; tiers through the API; mistakes recorded, converted with the model and with the fallback; plans created, checked off, regenerated; exams generated, timed, graded and turned into mistakes; readiness and upcoming reviews | MockMvc against PostgreSQL with the scripted fake model client |
 | AI validation and retries | Malformed JSON, prose, missing fields, wrong types, empty arrays, bad option counts, out-of-range answers, truncation, corrective retry, transport retry | Unit tests with `FakeClaudeClient` |
 | Services | Orchestration and transaction boundaries | Mockito |
 | REST API | Every endpoint: success, validation, auth, cross-user isolation, pagination, search, rate limiting, correlation ids | MockMvc against a real PostgreSQL container |
 | Frontend | API client (auth header, error mapping, 401 handling), format helpers, rating bar | Vitest + Testing Library |
 
-227 backend tests run in about two minutes: integration tests share one Spring context and truncate the database before each test.
+239 backend tests (44 classes) run in about three minutes: integration tests share one Spring context and truncate the database before each test.
 
 ## Continuous integration
 
@@ -638,13 +696,21 @@ Then open `https://app.example.com`, register, create a deck, generate cards fro
 
 Captured from the composed stack running on the Groq provider (`AI_PROVIDER=groq`, `openai/gpt-oss-120b`): the cards, the quiz and the explanations shown here were generated from pasted notes at zero cost. `docs/screenshots/README.md` lists the screens and the Playwright command used.
 
-| Dashboard | Deck and card generation |
+| Dashboard with readiness and today's plan | Deck and card generation |
 |---|---|
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Deck](docs/screenshots/deck.png) |
 
-| Study session | Quiz results | Analytics |
+| Study session | Quiz results with mistake review | Analytics |
 |---|---|---|
 | ![Study](docs/screenshots/study.png) | ![Quiz results](docs/screenshots/quiz-results.png) | ![Analytics](docs/screenshots/analytics.png) |
+
+| Study plan | Mock exam | Exam results |
+|---|---|---|
+| ![Study plan](docs/screenshots/plan.png) | ![Mock exam](docs/screenshots/exam.png) | ![Exam results](docs/screenshots/exam-results.png) |
+
+| Practice a weak topic | Mistakes |
+|---|---|
+| ![Practice a topic](docs/screenshots/practice-topic.png) | ![Mistakes](docs/screenshots/mistakes.png) |
 
 ## Future improvements
 
@@ -658,7 +724,10 @@ Captured from the composed stack running on the Groq provider (`AI_PROVIDER=groq
 - **Review reminders** (email or push) when cards come due.
 - **Shared and public decks** with copy-to-my-decks.
 - **Observability**: OpenTelemetry traces and Micrometer metrics for AI latency, token spend and cache hit rate.
-- **End-to-end tests** with Playwright against the composed stack.
+- **End-to-end tests** with Playwright against the composed stack (the walkthrough script used for the screenshots is a starting point).
+- **Readiness calibration**: compare the estimate with real exam outcomes and tune the weights; per-exam readiness scoped to a plan's topics.
+- **Study plan notifications** and calendar export; plan tasks that deep-link into a pre-built session.
+- **Exam question types**: fill-in-the-blank and matching; partial credit for multi-part short answers.
 
 ## Interview talking points
 
@@ -723,3 +792,11 @@ Captured from the composed stack running on the Groq provider (`AI_PROVIDER=groq
 10. ✅ Frontend: auth, dashboard, decks, generation, study session, quizzes, analytics, settings
 11. ✅ Production hardening: per-user AI rate limiting, request correlation and access logging, security review, graceful shutdown, compression, production toggles
 12. ✅ AWS deployment: ECS Fargate task definitions, ECR push script, RDS and ALB guide, CI workflow
+13. ✅ Providers: demo mode, Google Gemini and Groq behind the same client interface; Groq as the zero-cost working provider
+14. ✅ Adaptive upgrade, phase 1: topic insight across reviews and quizzes, categories, practice sessions and topic quizzes
+15. ✅ Phase 2: adaptive difficulty tiers on top of SM-2 with response-time awareness
+16. ✅ Phase 3: mistakes captured from quizzes and exams, turned into scheduled flashcards with a fallback
+17. ✅ Phase 4: AI study planner with deterministic allocation, model-written advice and regeneration
+18. ✅ Phase 5: timed mock exams with mixed question types and local grading
+19. ✅ Phase 6: estimated exam readiness and the dashboard rebuild
+20. ✅ Phase 7: end-to-end verification against the composed stack on Groq
